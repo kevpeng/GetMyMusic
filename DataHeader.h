@@ -4,15 +4,15 @@
 
 // packet header
 struct packet_h {
-	// use the one from project 3 with no checksum
-	// data: [file_data_size|file_name|file_data] * n (where n is the number of files), we can force the file_data_size field to be 4 bytes,
-	// and the file_name field to be 2 bytes for example, so only file_data field will vary in length.
+  // use the one from project 3 with no checksum
+  // data: [file_data_size|file_name|file_data] * n (where n is the number of files), we can force the file_data_size field to be 4 bytes,
+  // and the file_name field to be 2 bytes for example, so only file_data field will vary in length.
 };
 
 
 struct music {
-	unsigned char* name;
-	unsigned char* data;
+  unsigned char* name;
+  unsigned char* data;
 };
 
 

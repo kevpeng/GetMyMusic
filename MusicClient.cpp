@@ -1,11 +1,11 @@
 #include "NetworkHeader.h" // get this
 
 int main() {
-	/* TODO: Command Line arguments */
+  /* TODO: Command Line arguments */
 
-	/* TODO: Set up TCP connection with the server */
+  /* TODO: Set up TCP connection with the server */
 
-	/* TODO: Waiting for input from the user and send LIST, DIFF, SYNC, LEAVE */
+  /* TODO: Waiting for input from the user and send LIST, DIFF, SYNC, LEAVE */
 
-	return 0;
+  return 0;
 }
