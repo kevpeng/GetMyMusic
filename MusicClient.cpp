@@ -3,7 +3,7 @@
 using namespace std; 
 
 int main(int argc, char *argv[]) {
-  /* TODO: Command Line arguments */
+  /* DONE: Command Line arguments */
 
   string serverIP = SERVER_HOST; // server host from the NetworkHeader.h
 	unsigned short serverPort = atoi(SERVER_PORT); // port from NetworkHeader.h
@@ -29,10 +29,6 @@ int main(int argc, char *argv[]) {
 		}
   }
 	
-	cout << "Please type a function name (LIST, DIFF, PULL, LEAVE, HELP): ";
-	string s = ""; 
-  cin >> s;
-	cout << "The command you issued was: " << s << endl;
 
 	int clientSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if(clientSocket < 0)
@@ -53,6 +49,18 @@ int main(int argc, char *argv[]) {
 	// establish TCP connection with server
 	if(connect(clientSocket, (struct sockaddr *) &servAddr, sizeof(servAddr))< 0)
 		DieWithError("connect() failed");
+	
+	// ask for input after connection is established.
+	cout << "Please type a function name (LIST, DIFF, PULL, LEAVE, HELP): ";
+	string s = ""; 
+  cin >> s;
+	cout << "The command you issued was: " << s << endl;
+
+	ssize_t numBytes = send(clientSocket, s, s.length(), 0i);
+	if(numBytes < 0)
+		DieWithError("send() failed");
+	
+
 
 	close(clientSocket);
 	return(0);
