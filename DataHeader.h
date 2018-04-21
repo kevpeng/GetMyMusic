@@ -1,5 +1,11 @@
-#include <vector>
-#include <map> // I prefer using this over vector
+#ifndef DATA_HEADER_H
+#define DATA_HEADER_H
+
+
+const int NAME_BYTES = 20;
+const int LENGTH_BYTES = 16;
+const int MAX_SONG_BYTES = 6000;
+const int MAX_SONG_LIST_BYTES = MAX_SONG_BYTES * 20;
 
 
 // packet header
@@ -7,28 +13,16 @@ struct packet_h {
   // use the one from project 3 with no checksum
   // data: [file_data_size|file_name|file_data] * n (where n is the number of files), we can force the file_data_size field to be 4 bytes,
   // and the file_name field to be 2 bytes for example, so only file_data field will vary in length.
-};
-
-
-struct music {
-  unsigned char* name;
-  unsigned char* data;
+  unsigned short version, type, length;
+  char data[MAX_SONG_LIST_BYTES];
 };
 
 
 /* functions for serializing and deserializing music list */
-std::vector<music> charArrayToMusicList(unsigned char *data); // deserialize char array to a vector of music
-void musicListToCharArray(unsigned char *buffer, std::vector<music> musicList); // serialize a list of music to the char buffer
+packet_h deserialize(char* packet_str);
+char* serialize(packet_h ph);
 
-/* functions for reading and writing music files from/to disk */
-std::vector<music> getMusicFromDir(); // get a list of music from the current directory or in the music dir if we want to
-void storeMusicToDir(std::vector<music> musicList);
+/* functions for reading and writing files */
+char* readFiles(char* dir_name);
 
-/* some other helper functions */
-std::vector<music> removeDuplicates(std::vector<music> musicList); // remove all duplicates (music files with the same contents)
-vector<music> getDiff(std::vector<music> first, std::vector<music> second); // get the list of music that is in the first one but not in the second
-
-/* 
-Note: I am thinking of using a hash map instead of a vector to store the music list,
-so we wont allow 2 music files with the same name. It will make things easier.
-*/
+#endif
