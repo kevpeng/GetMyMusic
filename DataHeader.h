@@ -1,10 +1,11 @@
 #ifndef DATA_HEADER_H
 #define DATA_HEADER_H
 
+#include <vector>
 
 const int NAME_BYTES = 20;
-const int LENGTH_BYTES = 16;
-const int MAX_SONG_BYTES = 6000;
+const int LENGTH_BYTES = sizeof(long);
+const int MAX_SONG_BYTES = 6000000;
 const int MAX_SONG_LIST_BYTES = MAX_SONG_BYTES * 20;
 
 
@@ -17,6 +18,11 @@ struct packet_h {
   char data[MAX_SONG_LIST_BYTES];
 };
 
+struct SongFile {
+  char name[NAME_BYTES]; // 1 more for null terminator
+  char data[MAX_SONG_BYTES];
+  long length;
+};
 
 /* functions for serializing and deserializing music list */
 packet_h deserialize(char* packet_str);
