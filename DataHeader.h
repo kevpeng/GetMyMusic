@@ -1,5 +1,5 @@
-#ifndef DATA_HEADER_H
-#define DATA_HEADER_H
+#ifndef __DATAHEADER_H__
+#define __DATAHEADER_H__
 
 #include <vector>
 
@@ -7,6 +7,8 @@ const int NAME_BYTES = 20;
 const int LENGTH_BYTES = sizeof(long);
 const int MAX_SONG_BYTES = 6000000;
 const int MAX_SONG_LIST_BYTES = MAX_SONG_BYTES * 20;
+
+using namespace std;
 
 
 // packet header
@@ -30,5 +32,6 @@ char* serialize(packet_h ph);
 
 /* functions for reading and writing files */
 char* readFiles(char* dir_name);
+
 
 #endif

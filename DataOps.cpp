@@ -4,8 +4,8 @@
 #include <stdio.h>
 #include <string.h>
 
-using namespace std;
 
+using namespace std;
 
 int getFilesFromDisk(string dir_name, char* data) {
   DIR* dir;
@@ -161,3 +161,4 @@ int main() {
   free(data);
   return 0;
 }
+
