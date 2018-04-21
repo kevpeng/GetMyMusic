@@ -1,3 +1,6 @@
+#ifndef __NETWORKHEADER_H__
+#define __NETWORKHEADER_H__
+
 #include <stdio.h>      /* for printf() and fprintf() */
 #include <sys/socket.h> /* for socket(), bind(), and connect() */
 #include <arpa/inet.h>  /* for sockaddr_in and inet_ntoa() */
@@ -21,3 +24,5 @@
 void DieWithError(char *errorMessage);
 void DieWithSystemMessage(char *msg); 
 void DieWithUserMessage(const char *msg, const char *detail);
+
+#endif

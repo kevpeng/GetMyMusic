@@ -1,5 +1,10 @@
+#ifndef __DATAHEADER_H__
+#define __DATAHEADER_H__
+
 #include <vector>
 #include <map> // I prefer using this over vector
+
+using namespace std;
 
 
 // packet header
@@ -32,3 +37,5 @@ vector<music> getDiff(std::vector<music> first, std::vector<music> second); // g
 Note: I am thinking of using a hash map instead of a vector to store the music list,
 so we wont allow 2 music files with the same name. It will make things easier.
 */
+
+#endif
