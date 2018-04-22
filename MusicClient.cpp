@@ -89,7 +89,14 @@ int main(int argc, char *argv[]) {
         writeSongToDisk(sList[i]);
       }
     }
-    s = "LEAVE";
+    else if (s == "DIFF") {
+      
+    }
+    else if (s == "PULL") {
+    }
+    else if (s == "LEAVE") {
+      s = "LEAVE";
+    }
   }
 
   free(ph.data);
