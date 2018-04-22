@@ -40,6 +40,7 @@ int main(int argc, char *argv[]) {
 	struct sockaddr_in servAddr;						// server address
 	memset(&servAddr, 0, sizeof(servAddr));	// zero out structure
 	servAddr.sin_family = AF_INET;					// ip4v squadfam
+	servAddr.sin_addr.s_addr = inet_addr(serverIP);			// serverIP
 	servAddr.sin_port = htons(serverPort); // server port
 	
 	// establish TCP connection with server
@@ -61,6 +62,11 @@ int main(int argc, char *argv[]) {
 
 	// ask for input after connection is established.
 	string s = ""; 
+	char* total_buffer;
+  total_buffer = (char*) malloc(sizeof(char) * (MAX_SONG_LIST_BYTES + 3));
+  char recv_buffer[SHORT_BUFFSIZE];
+  short recvMsgSize;
+  unsigned long idx = 0;
 
 	while(s != "LEAVE") {
 		cout << "Please type a function name (LIST, DIFF, PULL, LEAVE): ";
@@ -73,6 +79,20 @@ int main(int argc, char *argv[]) {
 			unsigned long bufferLen = serializePacket(buffer, ph);
 			if (send(clientSocket, buffer, bufferLen, 0) != bufferLen)
 				DieWithError("send() sent a different number of bytes than expected");
+
+			do {
+				if ((recvMsgSize = recv(clientSocket, recv_buffer, SHORT_BUFFSIZE, 0)) < 0)
+					DieWithError("recv() failed");
+
+				for (unsigned short i = 0; i < recvMsgSize; i++) {
+					total_buffer[idx + i] = recv_buffer[i];
+				}
+				idx += (unsigned short) recvMsgSize;
+			} while (recvMsgSize > 0);
+
+			packet_h recv_packet;
+			recv_packet.data = (char*) malloc(sizeof(char) * (MAX_SONG_LIST_BYTES));
+			deserializePacket(total_buffer, recv_packet);
 		}
 		s = "LEAVE";
 	}

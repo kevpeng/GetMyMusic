@@ -3,37 +3,63 @@
 
 #define MAXPENDING 5
 
+using namespace std;
 
 void HandleTCPClient(int clientSock) {
   char* buffer;
   buffer = (char*) malloc(sizeof(char) * (MAX_SONG_LIST_BYTES + 3));
   char recv_buffer[SHORT_BUFFSIZE];
-  unsigned short recvMsgSize;
-  unsigned long totalMsgSize = 0;
+  short recvMsgSize;
 
   unsigned long idx = 0;
 
   do {
+    cout << "before recv" << endl;
     if ((recvMsgSize = recv(clientSock, recv_buffer, SHORT_BUFFSIZE, 0)) < 0)
       DieWithError("recv() failed");
 
     for (unsigned short i = 0; i < recvMsgSize; i++) {
       buffer[idx + i] = recv_buffer[i];
     }
-    totalMsgSize += recvMsgSize;
+
+    idx += (unsigned short) recvMsgSize;
   } while (recvMsgSize > 0);
 
+  cout << "after do-while" << endl;
+
   packet_h recv_packet;
+  recv_packet.data = (char*) malloc(sizeof(char) * (MAX_SONG_LIST_BYTES));
   deserializePacket(buffer, recv_packet);
 
+  packet_h ph;
+  ph.version = 0x5;
+  ph.type = 0;
+  ph.r = 1; // response
+  ph.data = (char*) malloc(sizeof(char) * (MAX_SONG_LIST_BYTES));
+
+  // cout << "before from disk" << endl;
+  // getFilesFromDisk("music_dir_1", ph.data);
+  // cout << "after from disk" << endl;
+  // unsigned long bufferLen = serializePacket(buffer, ph);
+  // cout << "after serialize" << endl;
+
+  // cout << "before send" << endl;
+
+  // if (send(clientSock, buffer, bufferLen, 0) != bufferLen)
+  //   DieWithError("send() failed");
+
+  // cout << "sent" << endl;
+
   free(buffer);
+  free(recv_packet.data);
+  free(ph.data);
   close(clientSock);
 }
 
 
 int main(int argc, char* argv[]) {
-  if (argc != 5) {
-    printf("Error: Usage Project1Server -s <cookie> -p <port>\n");
+  if (argc < 3) {
+    printf("Error: Usage MusicServer -p <port>\n");
     exit(1);
   }
 
