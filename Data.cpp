@@ -1,5 +1,4 @@
-<<<<<<< HEAD:DataOps.cpp
-#include "DataHeader.h"
+#include "Data.h"
 #include "Hasher.h"
 
 #include <dirent.h>
@@ -133,7 +132,7 @@ void writeSongToDisk(SongFile& song) {
 
 /******* utility functions ********/
 
-vector<SongFile> deserializeSongList(char* data, unsigned long totalBytes) {
+vector<SongFile> deserializeSongList(char* data, unsigned long totalBytes, bool hash_data) {
   vector<SongFile> sList;
   unsigned long idx = 0;
 
@@ -144,13 +143,22 @@ vector<SongFile> deserializeSongList(char* data, unsigned long totalBytes) {
     idx += NAME_BYTES;
 
     // find the length of the song
-    memcpy(&song.length, data+idx, LENGTH_BYTES);
+    unsigned long length = 0;
+    memcpy(&length, data + idx, LENGTH_BYTES);
     idx += LENGTH_BYTES;
 
-    // copy data
-    memcpy(song.data, data + idx, song.length);
+    if (hash_data) {
+      unsigned long hash = djb2_hash(data + idx, length);
+      unsigned long hashBytes = sizeof(hash);
+      memcpy(song.data, &hash, hashBytes);
+      song.length = hashBytes;
+    }
+    else {
+      memcpy(song.data, data + idx, length);
+      song.length = length;
+    }
 
-    idx += song.length;
+    idx += length;
 
     sList.push_back(song);
   }

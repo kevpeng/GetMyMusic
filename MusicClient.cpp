@@ -1,5 +1,6 @@
 #include "NetworkHeader.h"
 #include "Data.h"
+#include <set>
 
 using namespace std; 
 
@@ -69,11 +70,15 @@ int main(int argc, char *argv[]) {
 
   char* buffer;
   buffer = (char*) malloc(sizeof(char) * (MAX_SONG_LIST_BYTES + 3));
+  unsigned long bufferLen;
 
   // for recving packet
   char recv_buffer[SHORT_BUFFSIZE];
   packet_h recv_packet;
   recv_packet.data = (char*) malloc(sizeof(char) * MAX_SONG_LIST_BYTES);
+
+  vector<SongFile> serverSongList;
+  vector<SongFile> clientSongList;
 
   // ask for input after connection is established.
   string s = ""; 
@@ -83,27 +88,28 @@ int main(int argc, char *argv[]) {
     s = "";
     cin >> s;
     cout << "The command you issued was: " << s << endl;
+
     if (s == "LIST") {
       ph.type = 0;
       ph.length = 0;
-      unsigned long bufferLen = serializePacket(buffer, ph);
-      if (send(sock, buffer, bufferLen, 0) != (unsigned int)bufferLen)
+      bufferLen = serializePacket(buffer, ph, false);
+      if (send(sock, buffer, bufferLen, 0) != (unsigned long)bufferLen)
         DieWithError("send() sent a different number of bytes than expected");
 
       recvTCPMessage(sock, buffer, recv_buffer);
       deserializePacket(buffer, recv_packet); 
-      cout << recv_packet.version << endl;
-      cout << recv_packet.type << endl;
-      cout << recv_packet.r << endl;
-      cout << recv_packet.length << endl;
 
-      vector<SongFile> sList = deserializeSongList(recv_packet.data, recv_packet.length);
-      for (unsigned int i = 0; i < sList.size(); i++) {
-        writeSongToDisk(sList[i]);
-      }
+      serverSongList = deserializeSongList(recv_packet.data, recv_packet.length, false);
+      cout << "Current song files on the server:" << endl;
+      for (unsigned int i = 0; i < serverSongList.size(); i++)
+        cout << serverSongList[i].name << endl;
     }
     else if (s == "DIFF") {
-      
+      bufferLen = getFilesFromDisk("music_dir_2", buffer);
+      clientSongList = deserializeSongList(buffer, bufferLen, true);
+      vector<SongFile> diff = getDiff(clientSongList, serverSongList);
+      for (unsigned int i = 0; i < diff.size(); i++)
+        cout << diff[i].name << endl;
     }
     else if (s == "PULL") {
     }

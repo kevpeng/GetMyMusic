@@ -30,7 +30,7 @@ void HandleTCPClient(int clientSock) {
   ph.data = (char*) malloc(sizeof(char) * (MAX_SONG_LIST_BYTES));
 
   ph.length = getFilesFromDisk("music_dir_1", ph.data);
-  unsigned long bufferLen = serializePacket(buffer, ph);
+  unsigned long bufferLen = serializePacket(buffer, ph, true);
 
   long sendStatus = send(clientSock, buffer, bufferLen, 0);
   if (sendStatus < 0)

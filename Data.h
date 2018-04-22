@@ -42,6 +42,6 @@ void writeSongToDisk(SongFile& song);
 
 /* utility functions */
 std::vector<SongFile> getDiff(std::vector<SongFile>& v1, std::vector<SongFile>& v2);
-std::vector<SongFile> deserializeSongList(char* data, unsigned long totalBytes);
+std::vector<SongFile> deserializeSongList(char* data, unsigned long totalBytes, bool hash_data);
 
 #endif
