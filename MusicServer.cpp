@@ -9,46 +9,34 @@ void HandleTCPClient(int clientSock) {
   char* buffer;
   buffer = (char*) malloc(sizeof(char) * (MAX_SONG_LIST_BYTES + 3));
   char recv_buffer[SHORT_BUFFSIZE];
-  short recvMsgSize;
 
-  unsigned long idx = 0;
+  recvTCPMessage(clientSock, buffer, recv_buffer);
 
-  do {
-    cout << "before recv" << endl;
-    if ((recvMsgSize = recv(clientSock, recv_buffer, SHORT_BUFFSIZE, 0)) < 0)
-      DieWithError("recv() failed");
-
-    for (unsigned short i = 0; i < recvMsgSize; i++) {
-      buffer[idx + i] = recv_buffer[i];
-    }
-
-    idx += (unsigned short) recvMsgSize;
-  } while (recvMsgSize > 0);
-
-  cout << "after do-while" << endl;
-
+  // recv packet
   packet_h recv_packet;
   recv_packet.data = (char*) malloc(sizeof(char) * (MAX_SONG_LIST_BYTES));
   deserializePacket(buffer, recv_packet);
 
+  cout << recv_packet.version << endl;
+  cout << recv_packet.type << endl;
+  cout << recv_packet.r << endl;
+  cout << recv_packet.length << endl;
+
+  // packet to send
   packet_h ph;
   ph.version = 0x5;
   ph.type = 0;
   ph.r = 1; // response
   ph.data = (char*) malloc(sizeof(char) * (MAX_SONG_LIST_BYTES));
 
-  // cout << "before from disk" << endl;
-  // getFilesFromDisk("music_dir_1", ph.data);
-  // cout << "after from disk" << endl;
-  // unsigned long bufferLen = serializePacket(buffer, ph);
-  // cout << "after serialize" << endl;
+  ph.length = getFilesFromDisk("music_dir_1", ph.data);
+  unsigned long bufferLen = serializePacket(buffer, ph);
 
-  // cout << "before send" << endl;
-
-  // if (send(clientSock, buffer, bufferLen, 0) != bufferLen)
-  //   DieWithError("send() failed");
-
-  // cout << "sent" << endl;
+  long sendStatus = send(clientSock, buffer, bufferLen, 0);
+  if (sendStatus < 0)
+    DieWithError("send() failed");
+  if (bufferLen != (unsigned long) sendStatus)
+    DieWithError("send() sent a different number of bytes than expected");
 
   free(buffer);
   free(recv_packet.data);

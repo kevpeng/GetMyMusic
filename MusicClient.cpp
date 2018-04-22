@@ -5,8 +5,6 @@ using namespace std;
 
 
 int main(int argc, char *argv[]) {
-  /* DONE: Command Line arguments */
-
   string serverIP = SERVER_HOST; // server host from the NetworkHeader.h
 	unsigned short serverPort = atoi(SERVER_PORT); // port from NetworkHeader.h
 	
@@ -32,19 +30,19 @@ int main(int argc, char *argv[]) {
   }
 	
 
-	int clientSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-	if(clientSocket < 0)
+	int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	if(sock < 0)
 		DieWithError("socket() failed");
 
 	// construct the server address structure
 	struct sockaddr_in servAddr;						// server address
 	memset(&servAddr, 0, sizeof(servAddr));	// zero out structure
 	servAddr.sin_family = AF_INET;					// ip4v squadfam
-	servAddr.sin_addr.s_addr = inet_addr(serverIP);			// serverIP
+	servAddr.sin_addr.s_addr = inet_addr(serverIP.c_str());			// serverIP
 	servAddr.sin_port = htons(serverPort); // server port
 	
 	// establish TCP connection with server
-	if(connect(clientSocket, (struct sockaddr *) &servAddr, sizeof(servAddr))< 0)
+	if(connect(sock, (struct sockaddr *) &servAddr, sizeof(servAddr))< 0)
 		DieWithError("connect() failed");
 
 	// connection is successful
@@ -57,16 +55,15 @@ int main(int argc, char *argv[]) {
 	ph.data = (char*) malloc(sizeof(char) * MAX_SONG_LIST_BYTES);
 
 	char* buffer;
-
 	buffer = (char*) malloc(sizeof(char) * (MAX_SONG_LIST_BYTES + 3));
+
+  // for recving packet
+  char recv_buffer[SHORT_BUFFSIZE];
+  packet_h recv_packet;
+  recv_packet.data = (char*) malloc(sizeof(char) * MAX_SONG_LIST_BYTES);
 
 	// ask for input after connection is established.
 	string s = ""; 
-	char* total_buffer;
-  total_buffer = (char*) malloc(sizeof(char) * (MAX_SONG_LIST_BYTES + 3));
-  char recv_buffer[SHORT_BUFFSIZE];
-  short recvMsgSize;
-  unsigned long idx = 0;
 
 	while(s != "LEAVE") {
 		cout << "Please type a function name (LIST, DIFF, PULL, LEAVE): ";
@@ -77,30 +74,29 @@ int main(int argc, char *argv[]) {
 			ph.type = 0;
 			ph.length = 0;
 			unsigned long bufferLen = serializePacket(buffer, ph);
-			if (send(clientSocket, buffer, bufferLen, 0) != bufferLen)
+			if (send(sock, buffer, bufferLen, 0) != bufferLen)
 				DieWithError("send() sent a different number of bytes than expected");
 
-			do {
-				if ((recvMsgSize = recv(clientSocket, recv_buffer, SHORT_BUFFSIZE, 0)) < 0)
-					DieWithError("recv() failed");
+      recvTCPMessage(sock, buffer, recv_buffer);
+      deserializePacket(buffer, recv_packet); 
+      cout << recv_packet.version << endl;
+      cout << recv_packet.type << endl;
+      cout << recv_packet.r << endl;
+      cout << recv_packet.length << endl;
 
-				for (unsigned short i = 0; i < recvMsgSize; i++) {
-					total_buffer[idx + i] = recv_buffer[i];
-				}
-				idx += (unsigned short) recvMsgSize;
-			} while (recvMsgSize > 0);
-
-			packet_h recv_packet;
-			recv_packet.data = (char*) malloc(sizeof(char) * (MAX_SONG_LIST_BYTES));
-			deserializePacket(total_buffer, recv_packet);
+      vector<SongFile> sList = deserializeSongList(recv_packet.data, recv_packet.length);
+      for (unsigned int i = 0; i < sList.size(); i++) {
+        writeSongToDisk(sList[i]);
+      }
 		}
 		s = "LEAVE";
 	}
 
 	free(ph.data);
+  free(recv_packet.data);
 	free(buffer);
 
-	close(clientSocket);
+	close(sock);
 
   return 0;
 }

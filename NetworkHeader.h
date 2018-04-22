@@ -22,5 +22,6 @@
 #define BUFFSIZE        8192    /* buffer size for reads and writes */
 #define SHORT_BUFFSIZE  100     /* For messages I know are short */
 void DieWithError(std::string errorMessage);
+unsigned long recvTCPMessage(int sock, char* buffer, char recv_buffer[]);
 
 #endif

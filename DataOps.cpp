@@ -8,10 +8,10 @@ using namespace std;
 
 
 /******* functions for serializing and deserializing packet ********/
-unsigned long copyData(char* data, char* buffer, unsigned short numFiles) {
+void copyData(char* data, char* buffer, unsigned long totalBytes) {
   unsigned long idx = 0;
 
-  for (unsigned short i = 0; i < numFiles; i++) {
+  while (idx < totalBytes) {
     // name
     memcpy(buffer + idx, data + idx, NAME_BYTES);
     idx += NAME_BYTES;
@@ -28,16 +28,16 @@ unsigned long copyData(char* data, char* buffer, unsigned short numFiles) {
 
     idx += length;
   }
-
-  return idx;
 }
+
 
 unsigned long serializePacket(char* packet_str, packet_h& ph) {
   // version + type
   packet_str[0] = (ph.version << 4) | (ph.type << 1) | (ph.r);
   // length 
-  packet_str[1] = ph.length;
-  return copyData(ph.data, packet_str + 2, ph.length) + 2;
+  memcpy(packet_str + 1, &ph.length, LENGTH_BYTES);
+  copyData(ph.data, packet_str + 1 + LENGTH_BYTES, ph.length);
+  return 1 + LENGTH_BYTES + ph.length;
 }
 
 
@@ -45,13 +45,13 @@ void deserializePacket(char* packet_str, packet_h& ph) {
   ph.version = ((unsigned char) packet_str[0]) >> 4;
   ph.type = (((unsigned char) packet_str[0]) >> 1) & 0x7;
   ph.r = packet_str[0] & 0x1;
-  ph.length = packet_str[1];
-  copyData(packet_str + 2, ph.data, ph.length);
+  memcpy(&ph.length, packet_str + 1, LENGTH_BYTES);
+  copyData(packet_str + 1 + LENGTH_BYTES, ph.data, ph.length);
 } 
 
 
 /******* functions for reading and writing files ********/
-unsigned short getFilesFromDisk(string dir_name, char* data) {
+unsigned long getFilesFromDisk(string dir_name, char* data) {
   DIR* dir;
   dirent* pdir;
 
@@ -63,22 +63,20 @@ unsigned short getFilesFromDisk(string dir_name, char* data) {
   dir = opendir(dir_name.c_str());
 
   unsigned long idx = 0;
-  unsigned short numFiles = 0;
 
   while ((pdir = readdir(dir))) {
     string fname = pdir->d_name;
     // check if it is really an MP3 file
     if (fname.substr(fname.find_last_of(".") + 1) != "mp3") 
       continue;
-    
-    numFiles += 1;
 
     // add song name
     for (unsigned short i = 0; i < NAME_BYTES; i++) {
       data[idx + i] = fname[i];
       // pad with null pointer
-      if (i >= fname.length())
+      if (i >= (unsigned short) fname.length()) {
         data[idx + i] = '\0';
+      }
     }
 
     idx += NAME_BYTES;
@@ -106,7 +104,7 @@ unsigned short getFilesFromDisk(string dir_name, char* data) {
     free(buffer);
   }
 
-  return numFiles;
+  return idx; // total bytes for data field
 }
 
 
@@ -120,11 +118,11 @@ void writeSongToDisk(SongFile& song) {
 
 /******* utility functions ********/
 
-vector<SongFile> deserializeSongList(char* data, unsigned short numFiles) {
+vector<SongFile> deserializeSongList(char* data, unsigned long totalBytes) {
   vector<SongFile> sList;
   unsigned long idx = 0;
 
-  for (unsigned short i = 0; i < numFiles; i++) {
+  while (idx < totalBytes) {
     SongFile song;
 
     memcpy(song.name, data + idx, NAME_BYTES);
@@ -160,7 +158,7 @@ bool compareSong(SongFile& s1, SongFile& s2) {
 
 
 bool hasSong(vector<SongFile>& v, SongFile& song) {
-  for (int i = 0; i < v.size(); i++) {
+  for (unsigned int i = 0; i < v.size(); i++) {
     if (compareSong(v[i], song)) {
       return true;
     }
@@ -173,7 +171,7 @@ bool hasSong(vector<SongFile>& v, SongFile& song) {
 vector<SongFile> getDiff(vector<SongFile>& v1, vector<SongFile>& v2) {
   vector<SongFile> diff;
 
-  for (int i = 0; i < v2.size(); i++) {
+  for (unsigned int i = 0; i < v2.size(); i++) {
     if (!hasSong(v1, v2[i]))
       diff.push_back(v2[i]);
   }
@@ -183,34 +181,37 @@ vector<SongFile> getDiff(vector<SongFile>& v1, vector<SongFile>& v2) {
 
 
 // DEBUG
-// int main() {
-//   packet_h ph;
-//   ph.data = (char*) malloc(sizeof(char) * MAX_SONG_LIST_BYTES);
 
-//   unsigned short numFiles = getFilesFromDisk("music_dir_1", ph.data);
-//   ph.length = numFiles;
-//   ph.version = 0x5;
-//   ph.type = 0x1;
-//   ph.r = 1;
+/*
+int main() {
+  packet_h ph;
+  ph.data = (char*) malloc(sizeof(char) * MAX_SONG_LIST_BYTES);
 
-//   char* packet_str;
-//   packet_str = (char*) malloc(sizeof(char) * (MAX_SONG_LIST_BYTES + 3));
-//   serializePacket(packet_str, ph);
+  unsigned long totalBytes = getFilesFromDisk("music_dir_1", ph.data);
+  ph.length = totalBytes;
+  ph.version = 0x5;
+  ph.type = 0x1;
+  ph.r = 1;
 
-//   packet_h other;
-//   other.data = (char*) malloc(sizeof(char) * MAX_SONG_LIST_BYTES);
-//   deserializePacket(packet_str, other);
+  char* packet_str;
+  packet_str = (char*) malloc(sizeof(char) * (MAX_SONG_LIST_BYTES + 3));
+  serializePacket(packet_str, ph);
 
-//   cout << (ph.version == other.version) << endl;
-//   cout << (ph.type == other.type) << endl;
-//   cout << (ph.r == other.r) << endl;
-//   cout << (ph.length == other.length) << endl;
+  packet_h other;
+  other.data = (char*) malloc(sizeof(char) * MAX_SONG_LIST_BYTES);
+  deserializePacket(packet_str, other);
 
-//   vector<SongFile> v = deserializeSongList(other.data, other.length);
-//   for (int i = 0; i < v.size(); i++) {
-//     writeSongToDisk(v[i]);
-//   }
+  cout << (ph.version == other.version) << endl;
+  cout << (ph.type == other.type) << endl;
+  cout << (ph.r == other.r) << endl;
+  cout << (ph.length == other.length) << endl;
 
-//   free(ph.data);
-//   return 0;
-// }
+  vector<SongFile> v = deserializeSongList(other.data, other.length);
+  for (unsigned int i = 0; i < v.size(); i++) {
+    writeSongToDisk(v[i]);
+  }
+
+  free(ph.data);
+  return 0;
+}
+*/
