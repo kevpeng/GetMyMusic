@@ -32,7 +32,7 @@ struct SongFile {
 
 /* functions for serializing and deserializing packet */
 void deserializePacket(char* packet_str, packet_h& ph);
-unsigned long serializePacket(char* packet_str, packet_h& ph);
+unsigned long serializePacket(char* packet_str, packet_h& ph, bool hash_data);
 
 /* functions for reading and writing files */
 unsigned long getFilesFromDisk(std::string dir_name, char* data);

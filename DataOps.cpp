@@ -1,4 +1,6 @@
 #include "DataHeader.h"
+#include "Hasher.h"
+
 #include <dirent.h>
 #include <iostream>
 #include <stdio.h>
@@ -8,36 +10,48 @@ using namespace std;
 
 
 /******* functions for serializing and deserializing packet ********/
-void copyData(char* data, char* buffer, unsigned long totalBytes) {
-  unsigned long idx = 0;
+unsigned long copyData(char* data, char* buffer, unsigned long totalBytes, bool hash_data) {
+  unsigned long bufferIdx = 0;
+  unsigned long dataIdx = 0;
 
-  while (idx < totalBytes) {
+  while (dataIdx < totalBytes) {
     // name
-    memcpy(buffer + idx, data + idx, NAME_BYTES);
-    idx += NAME_BYTES;
+    memcpy(buffer + bufferIdx, data + dataIdx, NAME_BYTES);
+    bufferIdx += NAME_BYTES;
+    dataIdx += NAME_BYTES;
 
     // length
     unsigned long length;
-    memcpy(buffer + idx, data + idx, LENGTH_BYTES);
-    memcpy(&length, data + idx, LENGTH_BYTES);
+    memcpy(&length, data + dataIdx, LENGTH_BYTES);
 
-    idx += LENGTH_BYTES;
-
-    // data
-    memcpy(buffer + idx, data + idx, length);
-
-    idx += length;
+    if (hash_data) {
+      unsigned long hash = djb2_hash(data + dataIdx + LENGTH_BYTES, length);
+      unsigned long hashBytes = sizeof(hash);
+      memcpy(buffer + bufferIdx, &hashBytes, LENGTH_BYTES);
+      bufferIdx += LENGTH_BYTES;
+      memcpy(buffer + bufferIdx, &hash, hashBytes);
+      bufferIdx += LENGTH_BYTES;
+    }
+    else {
+      memcpy(buffer + bufferIdx, data + dataIdx, LENGTH_BYTES);
+      bufferIdx += LENGTH_BYTES;
+      memcpy(buffer + bufferIdx, data + dataIdx + LENGTH_BYTES, length);
+      bufferIdx += length;
+    }
+  
+    dataIdx += LENGTH_BYTES + length;
   }
+
+  return bufferIdx;
 }
 
 
-unsigned long serializePacket(char* packet_str, packet_h& ph) {
+unsigned long serializePacket(char* packet_str, packet_h& ph, bool hash_data) {
   // version + type
   packet_str[0] = (ph.version << 4) | (ph.type << 1) | (ph.r);
-  // length 
-  memcpy(packet_str + 1, &ph.length, LENGTH_BYTES);
-  copyData(ph.data, packet_str + 1 + LENGTH_BYTES, ph.length);
-  return 1 + LENGTH_BYTES + ph.length;
+  unsigned long length = copyData(ph.data, packet_str + 1 + LENGTH_BYTES, ph.length, hash_data);
+  memcpy(packet_str + 1, &length, LENGTH_BYTES);
+  return 1 + LENGTH_BYTES + length;
 }
 
 
@@ -46,7 +60,7 @@ void deserializePacket(char* packet_str, packet_h& ph) {
   ph.type = (((unsigned char) packet_str[0]) >> 1) & 0x7;
   ph.r = packet_str[0] & 0x1;
   memcpy(&ph.length, packet_str + 1, LENGTH_BYTES);
-  copyData(packet_str + 1 + LENGTH_BYTES, ph.data, ph.length);
+  copyData(packet_str + 1 + LENGTH_BYTES, ph.data, ph.length, false);
 } 
 
 
@@ -212,6 +226,45 @@ int main() {
   }
 
   free(ph.data);
+  return 0;
+}
+*/
+
+// test hash
+
+/*
+int main() {
+  packet_h ph;
+  ph.data = (char*) malloc(sizeof(char) * MAX_SONG_LIST_BYTES);
+
+  unsigned long totalBytes = getFilesFromDisk("music_dir_1", ph.data);
+  ph.length = totalBytes;
+  ph.version = 0x5;
+  ph.type = 0x1;
+  ph.r = 1;
+
+  char* packet_str;
+  packet_str = (char*) malloc(sizeof(char) * (MAX_SONG_LIST_BYTES + 3));
+  serializePacket(packet_str, ph, true);
+
+  packet_h other;
+  other.data = (char*) malloc(sizeof(char) * MAX_SONG_LIST_BYTES);
+  deserializePacket(packet_str, other);
+
+  cout << (ph.version == other.version) << endl;
+  cout << (ph.type == other.type) << endl;
+  cout << (ph.r == other.r) << endl;
+
+  cout << "after deserialize" << endl;
+  vector<SongFile> v = deserializeSongList(other.data, other.length);
+  for (unsigned int i = 0; i < v.size(); i++) {
+    unsigned long hash;
+    memcpy(&hash, v[i].data, LENGTH_BYTES);
+    cout << hash << endl;
+  }
+
+  free(ph.data);
+  free(packet_str);
   return 0;
 }
 */
