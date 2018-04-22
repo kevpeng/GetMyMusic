@@ -1,5 +1,5 @@
-#ifndef __DATAHEADER_H__
-#define __DATAHEADER_H__
+#ifndef __DATA_H__
+#define __DATA_H__
 
 #include <vector>
 #include <string>
@@ -29,6 +29,8 @@ struct SongFile {
   char data[MAX_SONG_BYTES];
   unsigned long length; // length of data in bytes
 };
+
+void copyData(char* data, char* buffer, unsigned long totalBytes);
 
 /* functions for serializing and deserializing packet */
 void deserializePacket(char* packet_str, packet_h& ph);
