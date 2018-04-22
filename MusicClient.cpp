@@ -40,7 +40,7 @@ int main(int argc, char *argv[]) {
 	struct sockaddr_in servAddr;						// server address
 	memset(&servAddr, 0, sizeof(servAddr));	// zero out structure
 	servAddr.sin_family = AF_INET;					// ip4v squadfam
-	servAddr.sin_addr.s_addr = inet_addr(serverIP);			// serverIP
+	servAddr.sin_addr.s_addr = inet_addr(serverIP.c_str());			// serverIP
 	servAddr.sin_port = htons(serverPort); // server port
 	
 	// establish TCP connection with server
@@ -77,7 +77,7 @@ int main(int argc, char *argv[]) {
 			ph.type = 0;
 			ph.length = 0;
 			unsigned long bufferLen = serializePacket(buffer, ph);
-			if (send(clientSocket, buffer, bufferLen, 0) != bufferLen)
+			if (send(clientSocket, buffer, bufferLen, 0) != (unsigned int)bufferLen)
 				DieWithError("send() sent a different number of bytes than expected");
 
 			do {
