@@ -1,11 +1,11 @@
 #include "NetworkHeader.h"
-#include "DataHeader.h"
+#include "Data.h"
 
 using namespace std; 
 
 
 int main(int argc, char *argv[]) {
-  string serverIP = SERVER_HOST; // server host from the NetworkHeader.h
+  char* serverIP = (char *)SERVER_HOST; // server host from the NetworkHeader.h
   unsigned short serverPort = atoi(SERVER_PORT); // port from NetworkHeader.h
 
   if(argc < 2) {
@@ -30,6 +30,9 @@ int main(int argc, char *argv[]) {
   }
 
 
+  hostent* remoteHost;
+
+
   int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
   if(sock < 0)
     DieWithError("socket() failed");
@@ -38,8 +41,18 @@ int main(int argc, char *argv[]) {
   struct sockaddr_in servAddr;						// server address
   memset(&servAddr, 0, sizeof(servAddr));	// zero out structure
   servAddr.sin_family = AF_INET;					// ip4v squadfam
-  servAddr.sin_addr.s_addr = inet_addr(serverIP.c_str());			// serverIP
   servAddr.sin_port = htons(serverPort); // server port
+  //servAddr.sin_addr.s_addr = inet_addr(serverIP.c_str());			// serverIP
+
+  // Handles both IP and name address input
+  if((remoteHost = gethostbyname(serverIP)) != NULL) {  // If host is domain name
+    servAddr.sin_addr.s_addr =  *((unsigned long *) remoteHost->h_addr_list[0]);
+  }
+  else { // Host address is address
+    unsigned int addr = inet_addr(serverIP);   // converts format of address to binary
+    remoteHost = gethostbyaddr((char *)&addr, 4, AF_INET);
+    servAddr.sin_addr.s_addr = addr;  // Internet Address 32 bits
+  }
 
   // establish TCP connection with server
   if(connect(sock, (struct sockaddr *) &servAddr, sizeof(servAddr))< 0)
@@ -89,7 +102,14 @@ int main(int argc, char *argv[]) {
         writeSongToDisk(sList[i]);
       }
     }
-    s = "LEAVE";
+    else if (s == "DIFF") {
+      
+    }
+    else if (s == "PULL") {
+    }
+    else if (s == "LEAVE") {
+      s = "LEAVE";
+    }
   }
 
   free(ph.data);

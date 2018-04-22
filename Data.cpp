@@ -1,3 +1,4 @@
+<<<<<<< HEAD:DataOps.cpp
 #include "DataHeader.h"
 #include "Hasher.h"
 
