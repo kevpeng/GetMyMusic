@@ -12,7 +12,7 @@
 #include <signal.h>     // for sigaction()
 #include <iostream>     // iostream
 
-#define SERVER_HOST "141.166.207.144"  /* wallis IP address */
+#define SERVER_HOST "141.166.207.144"  /* mathcs01 IP address */
 #define SERVER_PORT "31400"
 #define SA struct sockaddr
 
