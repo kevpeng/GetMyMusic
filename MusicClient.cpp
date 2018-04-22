@@ -1,6 +1,8 @@
-#include "NetworkHeader.h" // get this
+#include "NetworkHeader.h"
+#include "DataHeader.h"
 
 using namespace std; 
+
 
 int main(int argc, char *argv[]) {
   /* DONE: Command Line arguments */
@@ -8,11 +10,11 @@ int main(int argc, char *argv[]) {
   string serverIP = SERVER_HOST; // server host from the NetworkHeader.h
 	unsigned short serverPort = atoi(SERVER_PORT); // port from NetworkHeader.h
 	
-	if(argc < 2) 
-  {
+	if(argc < 2) {
     cout << "Error: Usage MusicClient [-h <serverIP>] [-p <serverPort>]" << endl;
 		return(1);
 	}
+
 	for(int i = 1; i < argc; ++i) { // parse in the IP and port number
     if(argv[i][0] == '-') {
       char c = argv[i][1];
@@ -38,12 +40,6 @@ int main(int argc, char *argv[]) {
 	struct sockaddr_in servAddr;						// server address
 	memset(&servAddr, 0, sizeof(servAddr));	// zero out structure
 	servAddr.sin_family = AF_INET;					// ip4v squadfam
-
-	// convert address
-	int rtnVal = inet_pton(AF_INET,serverIP.c_str(), &servAddr.sin_addr.s_addr);
-	if(rtnVal <= 0)
-		DieWithError("inet_pton() failed");
-
 	servAddr.sin_port = htons(serverPort); // server port
 	
 	// establish TCP connection with server
@@ -53,36 +49,38 @@ int main(int argc, char *argv[]) {
 	// connection is successful
 	cout << "Connection was successful." << endl;	
 
+	// packet header
+	packet_h ph;
+	ph.version = 0x5;
+	ph.r = 0; // request
+	ph.data = (char*) malloc(sizeof(char) * MAX_SONG_LIST_BYTES);
+
+	char* buffer;
+
+	buffer = (char*) malloc(sizeof(char) * (MAX_SONG_LIST_BYTES + 3));
+
 	// ask for input after connection is established.
-	cout << "Please type a function name (LIST, DIFF, PULL, LEAVE): ";
 	string s = ""; 
-  cin >> s;
-	cout << "The command you issued was: " << s << endl;
 
 	while(s != "LEAVE") {
 		cout << "Please type a function name (LIST, DIFF, PULL, LEAVE): ";
 		s = "";
 		cin >> s;
 		cout << "The command you issued was: " << s << endl;
-		
-		
-		
-		
-	//	ssize_t numBytes = send(clientSocket, s, s.length(), 0);
-//		if(numBytes < 0)
-	//		DieWithError("send() failed");
-		
-		
-			
+		if (s == "LIST") {
+			ph.type = 0;
+			ph.length = 0;
+			unsigned long bufferLen = serializePacket(buffer, ph);
+			if (send(clientSocket, buffer, bufferLen, 0) != bufferLen)
+				DieWithError("send() sent a different number of bytes than expected");
+		}
+		s = "LEAVE";
 	}
+
+	free(ph.data);
+	free(buffer);
+
 	close(clientSocket);
-	return(0);
-
-
-
-  /* TODO: Set up TCP connection with the server */
-
-  /* TODO: Waiting for input from the user and send LIST, DIFF, SYNC, LEAVE */
 
   return 0;
 }

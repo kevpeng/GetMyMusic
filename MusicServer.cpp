@@ -1,32 +1,94 @@
-#include "NetworkHeader.h" // get this file
+#include "NetworkHeader.h"
+#include "DataHeader.h"
 
-void HandleTCPClient(int clientSocket) {
-  /* TODO: implement this */
+#define MAXPENDING 5
+
+
+void HandleTCPClient(int clientSock) {
+  char* buffer;
+  buffer = (char*) malloc(sizeof(char) * (MAX_SONG_LIST_BYTES + 3));
+  char recv_buffer[SHORT_BUFFSIZE];
+  unsigned short recvMsgSize;
+  unsigned long totalMsgSize = 0;
+
+  unsigned long idx = 0;
+
+  do {
+    if ((recvMsgSize = recv(clientSock, recv_buffer, SHORT_BUFFSIZE, 0)) < 0)
+      DieWithError("recv() failed");
+
+    for (unsigned short i = 0; i < recvMsgSize; i++) {
+      buffer[idx + i] = recv_buffer[i];
+    }
+    totalMsgSize += recvMsgSize;
+  } while (recvMsgSize > 0);
+
+  packet_h recv_packet;
+  deserializePacket(buffer, recv_packet);
+
+  free(buffer);
+  close(clientSock);
 }
 
-int main() {
-  /* TODO: Command Line arguments */
 
-  /* TODO: Set up TCP connection */
+int main(int argc, char* argv[]) {
+  if (argc != 5) {
+    printf("Error: Usage Project1Server -s <cookie> -p <port>\n");
+    exit(1);
+  }
 
-  /* TODO 
-   * 1) Multitheaded programming (pthreads vs select): 
-   * - pthreads: create a new thread to handle each client (share the same address space)
-   * - select: wait for I/O on multiple sockets
-   * - https://www.geeksforgeeks.org/socket-programming-in-cc-handling-multiple-clients-on-server-without-multi-threading/ (this link
-   * - said that select is much easier)
-   *
-   * 2) When a client asks for data, query the current directory for files (can cache these using a data structure)
-   *
-   * 3) What happens if multiple clients sync at once? 
-   * - This will be a problem if 2 files have the same content (files with different contents wont conflict with each other, I suppose?).
-   * - Are mentioned we cannot write to the memory at the same time with multithreading, but 
-   * I haven't found proof with some Google searches. 
-   * - If we use select, then these problems can be ignored I believe.
-   *
-   * Some additional notes:
-   * - Should we cache file contents in a vector to check for duplicates or read from disk every time? (RAM issue)
-   */
+  char c;
+  unsigned short servPort;
 
-  return 0;
+  for (int i = 1; i < argc; ++i) {
+    if (argv[i][0] == '-') {
+      c = argv[i][1];
+
+      /* found an option, so look at next
+       * argument to get the value of 
+       * the option */
+      switch (c) {
+        case 'p':
+          servPort = atoi(argv[i+1]);
+          break;
+        default:
+          break;
+      }
+    }
+  }
+
+  int servSock;
+  int clientSock;
+  unsigned int clientLen;
+  struct sockaddr_in servAddr;
+  struct sockaddr_in clientAddr;
+  
+  /* Create socket for incoming connections */
+  if ((servSock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) 
+    DieWithError("socket() failed");
+
+  /* Construct local address structure */
+  memset(&servAddr, 0, sizeof(servAddr));
+  servAddr.sin_family = AF_INET;
+  servAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+  servAddr.sin_port = htons(servPort);
+
+  /* Bind to the local address */
+  if (::bind(servSock, (struct sockaddr *) &servAddr, sizeof(servAddr)) < 0) 
+    DieWithError("bind() failed");
+
+  /* Mark the socket so it will listen for incoming connections */
+  if (listen(servSock, MAXPENDING) < 0)
+    DieWithError("listen() failed");
+
+  for (;;) {
+    clientLen = sizeof(clientAddr);
+    
+    /* Wait for client to connect */
+    if ((clientSock = accept(servSock, (struct sockaddr *) &clientAddr, &clientLen)) < 0)
+      DieWithError("accept() failed");
+
+    /* clientSock is connected to a client */
+    HandleTCPClient(clientSock);
+  }
 }

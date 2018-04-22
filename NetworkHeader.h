@@ -21,8 +21,6 @@
 #define MAXSOCKADDR     128     /* max socket address structure size */
 #define BUFFSIZE        8192    /* buffer size for reads and writes */
 #define SHORT_BUFFSIZE  100     /* For messages I know are short */
-void DieWithError(char *errorMessage);
-void DieWithSystemMessage(char *msg); 
-void DieWithUserMessage(const char *msg, const char *detail);
+void DieWithError(std::string errorMessage);
 
 #endif

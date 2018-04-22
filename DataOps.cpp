@@ -4,22 +4,66 @@
 #include <stdio.h>
 #include <string.h>
 
-
 using namespace std;
 
-int getFilesFromDisk(string dir_name, char* data) {
+
+/******* functions for serializing and deserializing packet ********/
+unsigned long copyData(char* data, char* buffer, unsigned short numFiles) {
+  unsigned long idx = 0;
+
+  for (unsigned short i = 0; i < numFiles; i++) {
+    // name
+    memcpy(buffer + idx, data + idx, NAME_BYTES);
+    idx += NAME_BYTES;
+
+    // length
+    unsigned long length;
+    memcpy(buffer + idx, data + idx, LENGTH_BYTES);
+    memcpy(&length, data + idx, LENGTH_BYTES);
+
+    idx += LENGTH_BYTES;
+
+    // data
+    memcpy(buffer + idx, data + idx, length);
+
+    idx += length;
+  }
+
+  return idx;
+}
+
+unsigned long serializePacket(char* packet_str, packet_h& ph) {
+  // version + type
+  packet_str[0] = (ph.version << 4) | (ph.type << 1) | (ph.r);
+  // length 
+  packet_str[1] = ph.length;
+  return copyData(ph.data, packet_str + 2, ph.length) + 2;
+}
+
+
+void deserializePacket(char* packet_str, packet_h& ph) {
+  ph.version = ((unsigned char) packet_str[0]) >> 4;
+  ph.type = (((unsigned char) packet_str[0]) >> 1) & 0x7;
+  ph.r = packet_str[0] & 0x1;
+  ph.length = packet_str[1];
+  copyData(packet_str + 2, ph.data, ph.length);
+} 
+
+
+/******* functions for reading and writing files ********/
+unsigned short getFilesFromDisk(string dir_name, char* data) {
   DIR* dir;
   dirent* pdir;
 
   // file
   FILE* fp;
-  long fSize;
+  unsigned long fSize;
   char* buffer;
 
   dir = opendir(dir_name.c_str());
 
-  int idx = 0;
-  int numFiles = 0;
+  unsigned long idx = 0;
+  unsigned short numFiles = 0;
 
   while ((pdir = readdir(dir))) {
     string fname = pdir->d_name;
@@ -30,7 +74,7 @@ int getFilesFromDisk(string dir_name, char* data) {
     numFiles += 1;
 
     // add song name
-    for (int i = 0; i < NAME_BYTES; i++) {
+    for (unsigned short i = 0; i < NAME_BYTES; i++) {
       data[idx + i] = fname[i];
       // pad with null pointer
       if (i >= fname.length())
@@ -66,11 +110,21 @@ int getFilesFromDisk(string dir_name, char* data) {
 }
 
 
-vector<SongFile> deserialize(char* data, int numFiles) {
-  vector<SongFile> sList;
-  int idx = 0;
+void writeSongToDisk(SongFile& song) {
+  FILE* fp;
+  fp = fopen(song.name, "wb");
+  fwrite(song.data, 1, song.length, fp);
+  fclose(fp);
+}
 
-  for (int i = 0; i < numFiles; i++) {
+
+/******* utility functions ********/
+
+vector<SongFile> deserializeSongList(char* data, unsigned short numFiles) {
+  vector<SongFile> sList;
+  unsigned long idx = 0;
+
+  for (unsigned short i = 0; i < numFiles; i++) {
     SongFile song;
 
     memcpy(song.name, data + idx, NAME_BYTES);
@@ -128,37 +182,35 @@ vector<SongFile> getDiff(vector<SongFile>& v1, vector<SongFile>& v2) {
 }
 
 
-void writeSongToDisk(SongFile& song) {
-  FILE* fp;
-  fp = fopen(song.name, "wb");
-  fwrite(song.data, 1, song.length, fp);
-  fclose(fp);
-}
+// DEBUG
+// int main() {
+//   packet_h ph;
+//   ph.data = (char*) malloc(sizeof(char) * MAX_SONG_LIST_BYTES);
 
+//   unsigned short numFiles = getFilesFromDisk("music_dir_1", ph.data);
+//   ph.length = numFiles;
+//   ph.version = 0x5;
+//   ph.type = 0x1;
+//   ph.r = 1;
 
-int main() {
-  char* data;
-  data = (char*) malloc(sizeof(char) * MAX_SONG_LIST_BYTES);
+//   char* packet_str;
+//   packet_str = (char*) malloc(sizeof(char) * (MAX_SONG_LIST_BYTES + 3));
+//   serializePacket(packet_str, ph);
 
-  int numFiles = getFilesFromDisk("music_dir_1", data);
-  vector<SongFile> v1 = deserialize(data, numFiles);
-  cout << "v1 has" << endl;
-  for (int i = 0; i < v1.size(); i++)
-    cout << v1[i].name << endl;
+//   packet_h other;
+//   other.data = (char*) malloc(sizeof(char) * MAX_SONG_LIST_BYTES);
+//   deserializePacket(packet_str, other);
 
-  cout << "v2 has" << endl;
-  numFiles = getFilesFromDisk("music_dir_2", data);
-  vector<SongFile> v2 = deserialize(data, numFiles);
-  for (int i = 0; i < v2.size(); i++)
-    cout << v2[i].name << endl;
+//   cout << (ph.version == other.version) << endl;
+//   cout << (ph.type == other.type) << endl;
+//   cout << (ph.r == other.r) << endl;
+//   cout << (ph.length == other.length) << endl;
 
-  // get diff
-  cout << "v2 has but v1 does not have" << endl;
-  vector<SongFile> diff = getDiff(v1, v2);
-  for (int i = 0; i < diff.size(); i++)
-    cout << diff[i].name << endl;
+//   vector<SongFile> v = deserializeSongList(other.data, other.length);
+//   for (int i = 0; i < v.size(); i++) {
+//     writeSongToDisk(v[i]);
+//   }
 
-  free(data);
-  return 0;
-}
-
+//   free(ph.data);
+//   return 0;
+// }
