@@ -83,7 +83,7 @@ int main(int argc, char *argv[]) {
     s = "";
     cin >> s;
     cout << "The command you issued was: " << s << endl;
-    if (s == "LIST") {
+    if (s == "LIST" || s ==  "list") {
       ph.type = 0;
       ph.length = 0;
       unsigned long bufferLen = serializePacket(buffer, ph);
@@ -102,12 +102,11 @@ int main(int argc, char *argv[]) {
         writeSongToDisk(sList[i]);
       }
     }
-    else if (s == "DIFF") {
-      
+    else if (s == "DIFF" || s == "diff") {
     }
     else if (s == "PULL") {
     }
-    else if (s == "LEAVE") {
+    else if (s == "LEAVE" || s == "leave") {
       s = "LEAVE";
     }
   }
