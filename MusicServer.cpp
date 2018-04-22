@@ -1,6 +1,6 @@
 #include "NetworkHeader.h"
 #include "Data.h"
-
+#include <pthread.h>
 #define MAXPENDING 5
 
 using namespace std;
@@ -43,6 +43,22 @@ void HandleTCPClient(int clientSock) {
   free(ph.data);
   close(clientSock);
 }
+
+struct ThreadArgs {
+	int clientSock; // socket descript for client
+};
+
+// for multithreading
+void *ThreadMain(void *threadArgs) {
+	// Guarantees that thread resources are deallocated upon return
+	pthread_detach(pthread_self());
+	// extract socket file descriptor from argument
+	int clntSock = ((struct ThreadArgs *)threadArgs)->clientSock;
+	free(threadArgs); // deallocate memory for argument 
+	HandleTCPClient(clntSock);
+	return(NULL);
+}
+
 
 
 int main(int argc, char* argv[]) {
@@ -101,8 +117,29 @@ int main(int argc, char* argv[]) {
     /* Wait for client to connect */
     if ((clientSock = accept(servSock, (struct sockaddr *) &clientAddr, &clientLen)) < 0)
       DieWithError("accept() failed");
+		
+    // clntSock connected to client!!!
+		char clntName[INET_ADDRSTRLEN];         // string to contain client address
+    if(inet_ntop(AF_INET, &clientAddr.sin_addr.s_addr, clntName, sizeof(clntName)) != NULL)
+      printf("Handling client %s/%d\n", clntName, ntohs(clientAddr.sin_port));
+    else
+      puts("Unable to get client address");
+
+		// create separate memory for client argument
+		struct ThreadArgs * threadArgs = (struct ThreadArgs *) malloc(sizeof(struct ThreadArgs));
+		if(threadArgs == NULL)
+			DieWithError((char*)"malloc() failed");
+
+		threadArgs->clientSock = clientSock;
+
+		// Create client thread
+		pthread_t threadID;
+		int returnValue = pthread_create(&threadID, NULL, ThreadMain, threadArgs);
+		if(returnValue != 0)
+			DieWithError((char*)"pthread_create() failed");
+
 
     /* clientSock is connected to a client */
-    HandleTCPClient(clientSock);
+    //HandleTCPClient(clientSock);
   }
 }
