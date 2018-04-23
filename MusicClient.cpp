@@ -117,7 +117,7 @@ int main(int argc, char *argv[]) {
       for (unsigned int i = 0; i < hashedServerSongList.size(); i++)
         cout << hashedServerSongList[i].name << endl;
 
-      cout << "\nDo you want to get the difference in files between you and the server?" << endl;
+      cout << "\nDo you want to get the difference in files between you and the server? (YES/NO)" << endl;
       cin >> commandInput;
       if (commandInput == "YES") s = "DIFF";
       else s = "WAIT";
@@ -152,7 +152,7 @@ int main(int argc, char *argv[]) {
       bufferLen = serializePacket(buffer, ph, false);
       sendTCPMessage(sock, buffer, bufferLen, 0);
 
-      cout << "\nDo you want to sync with the server?" << endl;
+      cout << "\nDo you want to sync with the server? (YES/NO)" << endl;
       cin >> commandInput;
       if (commandInput == "YES") s = "SYNC";
       else s = "WAIT";

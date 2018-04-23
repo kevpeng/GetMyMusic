@@ -36,6 +36,7 @@ void HandleTCPClient(int clientSock, char* clientAddr) {
     deserializePacket(buffer, recv_packet);
 
     if (recv_packet.type == 0) { // LIST
+      cout << "Receive a LIST packet from " << clientAddr << endl;
       // free old data first
       freeSongFiles(serverSongList);
 
@@ -49,6 +50,7 @@ void HandleTCPClient(int clientSock, char* clientAddr) {
       sendTCPMessage(clientSock, buffer, bufferLen, 0);
     } 
     else if (recv_packet.type == 1) { // DIFF
+      cout << "Receive a DIFF packet from " << clientAddr << endl;
       // free old data first
       freeSongFiles(onlyServer);
 
@@ -59,6 +61,8 @@ void HandleTCPClient(int clientSock, char* clientAddr) {
       }
     } 
     else if (recv_packet.type == 2) { // SYNC
+      cout << "Receive a SYNC packet from " << clientAddr << endl;
+
       /* send back data to the client */
       vector<SongFile> filesToSend;
       getSameSongList(filesToSend, onlyServer, serverSongList);
@@ -93,9 +97,12 @@ void HandleTCPClient(int clientSock, char* clientAddr) {
       // file the client has but the server does not
       getDiff(diff, hashedServerSongList, hashedClientSongList);
 
+      vector<SongFile> filesToWrite;
+      getSameSongList(filesToWrite, diff, clientSongList);
+
       // write the files to disk
-      for (unsigned int i = 0; i < diff.size(); i++) {
-        writeSongToDisk("server_dir", diff[i]);
+      for (unsigned int i = 0; i < filesToWrite.size(); i++) {
+        writeSongToDisk("server_dir", filesToWrite[i]);
       } 
 
       // free data for next query from the client
@@ -103,6 +110,8 @@ void HandleTCPClient(int clientSock, char* clientAddr) {
       freeSongFiles(serverSongList);
       freeSongFiles(hashedClientSongList);
       freeSongFiles(hashedServerSongList);
+
+      cout << "Finish writing files from " << clientAddr << endl;
     }
   }
 
