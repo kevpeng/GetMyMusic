@@ -122,9 +122,9 @@ unsigned long getFilesFromDisk(string dir_name, char* data) {
 }
 
 
-void writeSongToDisk(SongFile& song) {
+void writeSongToDisk(string dir_name, SongFile& song) {
   FILE* fp;
-  fp = fopen(song.name, "wb");
+  fp = fopen((dir_name + "/" + song.name).c_str(), "wb");
   fwrite(song.data, 1, song.length, fp);
   fclose(fp);
 }
@@ -190,6 +190,17 @@ void deserializeSongList(vector<SongFile>& sList, char* data, unsigned long tota
     idx += length;
 
     sList.push_back(song);
+  }
+}
+
+
+void getSameSongList(vector<SongFile>& sList, vector<SongFile>& first, vector<SongFile>& second) {
+  for (unsigned int i = 0; i < first.size(); i++) {
+    for (unsigned int j = 0; j < second.size(); j++) {
+      if (strncmp(first[i].name, second[j].name, NAME_BYTES) == 0) {
+        sList.push_back(second[j]);
+      }
+    }
   }
 }
 

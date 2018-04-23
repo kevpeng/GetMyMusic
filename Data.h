@@ -36,7 +36,7 @@ unsigned long serializePacket(char* packet_str, packet_h& ph, bool hash_data);
 
 /* functions for reading and writing files */
 unsigned long getFilesFromDisk(std::string dir_name, char* data);
-void writeSongToDisk(SongFile& song);
+void writeSongToDisk(std::string dir_name, SongFile& song);
 
 /* utility functions */
 void hashSongList(std::vector<SongFile>& original, std::vector<SongFile>& hashed);
@@ -44,5 +44,7 @@ void getDiff(std::vector<SongFile>& diff, std::vector<SongFile>& v1, std::vector
 void deserializeSongList(std::vector<SongFile>& sList, char* data, unsigned long totalBytes);
 unsigned long serializeSongList(std::vector<SongFile>& sList, char* data, bool hash_data);
 void freeSongFiles(std::vector<SongFile>& v);
+void getSameSongList(std::vector<SongFile>& sList, std::vector<SongFile>& first, 
+    std::vector<SongFile>& second);
 
 #endif

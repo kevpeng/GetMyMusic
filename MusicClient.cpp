@@ -80,7 +80,7 @@ int main(int argc, char *argv[]) {
   packet_h recv_packet;
   recv_packet.data = (char*) malloc(sizeof(char) * MAX_SONG_LIST_BYTES);
 
-  vector<SongFile> clientSongList, hashedServerSongList, hashedClientSongList;
+  vector<SongFile> serverSongList, clientSongList, hashedServerSongList, hashedClientSongList;
   // files that only the server and the client have respectively
   vector<SongFile> onlyServer, onlyClient; 
 
@@ -90,7 +90,7 @@ int main(int argc, char *argv[]) {
 
   while(s != "LEAVE") {
     if (s == "WAIT") {
-      cout << "enter LIST (display the list of files currently stored on the server) ";
+      cout << "\nenter LIST (display the list of files currently stored on the server) ";
       cout << "or LEAVE (end the connection)" << endl;
       cin >> commandInput;
       if (commandInput != "LIST" && commandInput != "LEAVE") {
@@ -146,9 +146,9 @@ int main(int argc, char *argv[]) {
       for (unsigned int i = 0; i < onlyClient.size(); i++) 
         cout << onlyClient[i].name << endl;
 
-      // send to the server the list of files you have but the server does not have
+      // send to the server the list of files the server has but you do not have
       ph.type = 1;
-      ph.length = serializeSongList(onlyClient, ph.data, false);
+      ph.length = serializeSongList(onlyServer, ph.data, false);
       bufferLen = serializePacket(buffer, ph, false);
       sendTCPMessage(sock, buffer, bufferLen, 0);
 
@@ -159,6 +159,31 @@ int main(int argc, char *argv[]) {
     }
 
     if (s == "SYNC") {
+      // get the files to send to the server
+      vector<SongFile> filesToSend;
+      getSameSongList(filesToSend, onlyClient, clientSongList);
+      cout << "\nSend these files to the server:" << endl;
+      for (unsigned int i = 0; i < filesToSend.size(); i++) {
+        cout << filesToSend[i].name << endl;
+      }
+
+      // construct packet and send to the server
+      ph.type = 2;
+      ph.length = serializeSongList(filesToSend, ph.data, false);
+      bufferLen = serializePacket(buffer, ph, false);
+      sendTCPMessage(sock, buffer, bufferLen, 0);
+
+      // get message back from the server
+      recvTCPMessage(sock, buffer, recv_buffer);
+      deserializePacket(buffer, recv_packet); 
+      deserializeSongList(serverSongList, recv_packet.data, recv_packet.length);
+
+      // write the files to disk
+      for (unsigned int i = 0; i < serverSongList.size(); i++) {
+        writeSongToDisk("client_dir", serverSongList[i]);
+      } 
+
+      s = "WAIT";
     }
 
     if (s == "LEAVE") {

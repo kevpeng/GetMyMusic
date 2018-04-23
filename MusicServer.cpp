@@ -7,11 +7,9 @@ using namespace std;
 void* ThreadMain(void* args);
 
 void HandleTCPClient(int clientSock, char* clientAddr) {
-  vector<SongFile> serverSongList;
-  vector<SongFile> clientSongList;
-  vector<SongFile> diffSongList;
-
-  cout << clientAddr << endl;
+  vector<SongFile> serverSongList, hashedServerSongList;
+  vector<SongFile> clientSongList, hashedClientSongList;
+  vector<SongFile> onlyServer;
 
   // for storing an entire packet
   char* buffer;
@@ -38,6 +36,9 @@ void HandleTCPClient(int clientSock, char* clientAddr) {
     deserializePacket(buffer, recv_packet);
 
     if (recv_packet.type == 0) { // LIST
+      // free old data first
+      freeSongFiles(serverSongList);
+
       // read data from disk
       ph.length = getFilesFromDisk("server_dir", ph.data);
       deserializeSongList(serverSongList, ph.data, ph.length);
@@ -48,11 +49,60 @@ void HandleTCPClient(int clientSock, char* clientAddr) {
       sendTCPMessage(clientSock, buffer, bufferLen, 0);
     } 
     else if (recv_packet.type == 1) { // DIFF
+      // free old data first
+      freeSongFiles(onlyServer);
+
+      deserializeSongList(onlyServer, recv_packet.data, recv_packet.length);
+
+      for (unsigned int i = 0; i < onlyServer.size(); i++) {
+        cout << onlyServer[i].name << endl;
+      }
+    } 
+    else if (recv_packet.type == 2) { // SYNC
+      /* send back data to the client */
+      vector<SongFile> filesToSend;
+      getSameSongList(filesToSend, onlyServer, serverSongList);
+      cout << "\nSend these files to the client:" << endl;
+      for (unsigned int i = 0; i < filesToSend.size(); i++) {
+        cout << filesToSend[i].name << endl;
+      }
+      ph.type = 2;
+      ph.length = serializeSongList(filesToSend, ph.data, false);
+      bufferLen = serializePacket(buffer, ph, false);
+      sendTCPMessage(clientSock, buffer, bufferLen, 0);
+
+      /* write data from the client to disk (put locks here) */
+      // free old data first 
+      freeSongFiles(onlyServer);
+      freeSongFiles(clientSongList);
+      freeSongFiles(serverSongList);
+
+      // read data from disk
+      ph.length = getFilesFromDisk("server_dir", ph.data);
+      deserializeSongList(serverSongList, ph.data, ph.length);
+  
+      // get client data
       deserializeSongList(clientSongList, recv_packet.data, recv_packet.length);
 
-      for (unsigned int i = 0; i < clientSongList.size(); i++) {
-        cout << clientSongList[i].name << endl;
-      }
+      // hash content
+      hashSongList(serverSongList, hashedServerSongList);
+      hashSongList(clientSongList, hashedClientSongList);
+
+      // get up-to-date difference
+      vector<SongFile> diff;
+      // file the client has but the server does not
+      getDiff(diff, hashedServerSongList, hashedClientSongList);
+
+      // write the files to disk
+      for (unsigned int i = 0; i < diff.size(); i++) {
+        writeSongToDisk("server_dir", diff[i]);
+      } 
+
+      // free data for next query from the client
+      freeSongFiles(clientSongList);
+      freeSongFiles(serverSongList);
+      freeSongFiles(hashedClientSongList);
+      freeSongFiles(hashedServerSongList);
     }
   }
 
@@ -61,7 +111,7 @@ void HandleTCPClient(int clientSock, char* clientAddr) {
   free(ph.data);
   freeSongFiles(serverSongList);
   freeSongFiles(clientSongList);
-  freeSongFiles(diffSongList);
+  freeSongFiles(onlyServer);
 
   close(clientSock);
 }
@@ -138,5 +188,3 @@ void* ThreadMain(void* threadArgs) {
 	HandleTCPClient(clntSock, clntAddr);
   return NULL;
 }
-
-
