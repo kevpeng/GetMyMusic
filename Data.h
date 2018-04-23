@@ -39,7 +39,8 @@ unsigned long getFilesFromDisk(std::string dir_name, char* data);
 void writeSongToDisk(SongFile& song);
 
 /* utility functions */
-std::vector<SongFile> getDiff(std::vector<SongFile>& v1, std::vector<SongFile>& v2);
+void hashSongList(std::vector<SongFile>& original, std::vector<SongFile>& hashed);
+void getDiff(std::vector<SongFile>& diff, std::vector<SongFile>& v1, std::vector<SongFile>& v2);
 void deserializeSongList(std::vector<SongFile>& sList, char* data, unsigned long totalBytes);
 unsigned long serializeSongList(std::vector<SongFile>& sList, char* data, bool hash_data);
 void freeSongFiles(std::vector<SongFile>& v);

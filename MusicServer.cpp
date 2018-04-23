@@ -6,10 +6,12 @@ using namespace std;
 
 void* ThreadMain(void* args);
 
-void HandleTCPClient(int clientSock) {
+void HandleTCPClient(int clientSock, char* clientAddr) {
   vector<SongFile> serverSongList;
   vector<SongFile> clientSongList;
   vector<SongFile> diffSongList;
+
+  cout << clientAddr << endl;
 
   // for storing an entire packet
   char* buffer;
@@ -46,7 +48,11 @@ void HandleTCPClient(int clientSock) {
       sendTCPMessage(clientSock, buffer, bufferLen, 0);
     } 
     else if (recv_packet.type == 1) { // DIFF
-    
+      deserializeSongList(clientSongList, recv_packet.data, recv_packet.length);
+
+      for (unsigned int i = 0; i < clientSongList.size(); i++) {
+        cout << clientSongList[i].name << endl;
+      }
     }
   }
 
@@ -63,6 +69,7 @@ void HandleTCPClient(int clientSock) {
 
 struct ThreadArgs {
 	int clientSock; // socket descript for client
+  char* clientAddr;
 };
 
 
@@ -94,6 +101,7 @@ int main(int argc, char* argv[]) {
 
   int servSock;
   int clientSock;
+  sockaddr_in clientAddr;
   pthread_t threadID;
   ThreadArgs* threadArgs;
   
@@ -101,12 +109,15 @@ int main(int argc, char* argv[]) {
   servSock = CreateTCPServerSocket(servPort);
 
   for (;;) {
-    clientSock = AcceptTCPConnection(servSock);  
+    clientSock = AcceptTCPConnection(servSock, clientAddr);  
 		
 		// create separate memory for client argument
 		if((threadArgs = (ThreadArgs*) malloc(sizeof(ThreadArgs))) == NULL)
 			DieWithError((char*)"malloc() failed");
+
 		threadArgs->clientSock = clientSock;
+    threadArgs->clientAddr = inet_ntoa(clientAddr.sin_addr);
+
 
 		// Create client thread
 		if(pthread_create(&threadID, NULL, ThreadMain, (void*)threadArgs) != 0)
@@ -121,9 +132,10 @@ void* ThreadMain(void* threadArgs) {
 	pthread_detach(pthread_self());
 	// extract socket file descriptor from argument
 	int clntSock = ((ThreadArgs*)threadArgs)->clientSock;
+	char* clntAddr = ((ThreadArgs*)threadArgs)->clientAddr;
 	free(threadArgs); // deallocate memory for argument 
 
-	HandleTCPClient(clntSock);
+	HandleTCPClient(clntSock, clntAddr);
   return NULL;
 }
 

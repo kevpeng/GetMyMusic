@@ -78,9 +78,8 @@ int CreateTCPServerSocket(unsigned short port) {
 }
 
 
-int AcceptTCPConnection(int servSock) {
+int AcceptTCPConnection(int servSock, sockaddr_in& echoClntAddr) {
   int clntSock;                    /* Socket descriptor for client */
-  struct sockaddr_in echoClntAddr; /* Client address */
   unsigned int clntLen;            /* Length of client address data structure */
 
   /* Set the size of the in-out parameter */
@@ -92,7 +91,6 @@ int AcceptTCPConnection(int servSock) {
     DieWithError("accept() failed");
 
   /* clntSock is connected to a client! */
-
   printf("Handling client %s\n", inet_ntoa(echoClntAddr.sin_addr));
 
   return clntSock;

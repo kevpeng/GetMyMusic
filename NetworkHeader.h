@@ -27,7 +27,7 @@
 void DieWithError(std::string errorMessage);
 
 int CreateTCPServerSocket(unsigned short port);
-int AcceptTCPConnection(int servSock);
+int AcceptTCPConnection(int servSock, sockaddr_in& clntAddr);
 
 unsigned long recvTCPMessage(int sock, char* buffer, char recv_buffer[]);
 void sendTCPMessage(int sock, char* buffer, unsigned long bufferLen, int flags);

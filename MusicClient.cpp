@@ -64,15 +64,16 @@ int main(int argc, char *argv[]) {
   // connection is successful
   cout << "Connection was successful." << endl;	
 
-  // packet header
+  // string holder for sending data
+  char* buffer;
+  buffer = (char*) malloc(sizeof(char) * (MAX_SONG_LIST_BYTES + 3));
+  unsigned long bufferLen;
+
+  // packet holder for sending data
   packet_h ph;
   ph.version = 0x5;
   ph.r = 0; // request
   ph.data = (char*) malloc(sizeof(char) * MAX_SONG_LIST_BYTES);
-
-  char* buffer;
-  buffer = (char*) malloc(sizeof(char) * (MAX_SONG_LIST_BYTES + 3));
-  unsigned long bufferLen;
 
   // for recving packet
   char recv_buffer[SHORT_BUFFSIZE];
@@ -80,18 +81,25 @@ int main(int argc, char *argv[]) {
   recv_packet.data = (char*) malloc(sizeof(char) * MAX_SONG_LIST_BYTES);
 
   vector<SongFile> clientSongList, hashedServerSongList, hashedClientSongList;
-  vector<SongFile> diff;
+  // files that only the server and the client have respectively
+  vector<SongFile> onlyServer, onlyClient; 
 
   // ask for input after connection is established.
-  string s = ""; 
+  string commandInput = "";
+  string s = "WAIT"; 
 
   while(s != "LEAVE") {
-    cout << "Please type a function name (LIST, DIFF, PULL, LEAVE): ";
-    s = "";
-    cin >> s;
-    cout << "The command you issued was: " << s << endl;
+    if (s == "WAIT") {
+      cout << "enter LIST (display the list of files currently stored on the server) ";
+      cout << "or LEAVE (end the connection)" << endl;
+      cin >> commandInput;
+      if (commandInput != "LIST" && commandInput != "LEAVE") {
+        continue;
+      } 
+      else s = commandInput;
+    }
 
-    if (s == "LIST" || s ==  "list") {
+    if (s == "LIST") {
       // free old data first
       freeSongFiles(hashedServerSongList);
 
@@ -108,26 +116,52 @@ int main(int argc, char *argv[]) {
       cout << "Current song files on the server:" << endl;
       for (unsigned int i = 0; i < hashedServerSongList.size(); i++)
         cout << hashedServerSongList[i].name << endl;
+
+      cout << "\nDo you want to get the difference in files between you and the server?" << endl;
+      cin >> commandInput;
+      if (commandInput == "YES") s = "DIFF";
+      else s = "WAIT";
     }
-    else if (s == "DIFF" || s == "diff") {
+
+    if (s == "DIFF") {
+      // free old data
       freeSongFiles(clientSongList);
       freeSongFiles(hashedClientSongList);
+      onlyServer.clear(); onlyClient.clear();
 
       bufferLen = getFilesFromDisk("client_dir", buffer);
       deserializeSongList(clientSongList, buffer, bufferLen);
 
       // hash the song content
-      for (unsigned int i = 0; i < clientSongList.size(); i++) {
-        SongFile song;
-        song.data = (char*) malloc(sizeof(char) * MAX_SONG_LIST_BYTES);
-        unsigned long hash = djb2_hash(clientSongList[i].data, clientSongList[i].length);
-        song.length = sizeof(hash);
-        memcpy(song.data, &hash, sizeof(hash));
-      }
+      hashSongList(clientSongList, hashedClientSongList);
+
+      // get the diff
+      getDiff(onlyServer, hashedClientSongList, hashedServerSongList);
+      cout << "Files the server has that you don't have:" << endl;
+      for (unsigned int i = 0; i < onlyServer.size(); i++) 
+        cout << onlyServer[i].name << endl;
+
+      getDiff(onlyClient, hashedServerSongList, hashedClientSongList);
+      cout << "Files you have but the server does not have:" << endl;
+      for (unsigned int i = 0; i < onlyClient.size(); i++) 
+        cout << onlyClient[i].name << endl;
+
+      // send to the server the list of files you have but the server does not have
+      ph.type = 1;
+      ph.length = serializeSongList(onlyClient, ph.data, false);
+      bufferLen = serializePacket(buffer, ph, false);
+      sendTCPMessage(sock, buffer, bufferLen, 0);
+
+      cout << "\nDo you want to sync with the server?" << endl;
+      cin >> commandInput;
+      if (commandInput == "YES") s = "SYNC";
+      else s = "WAIT";
     }
-    else if (s == "PULL") {
+
+    if (s == "SYNC") {
     }
-    else if (s == "LEAVE" || s == "leave") {
+
+    if (s == "LEAVE") {
       s = "LEAVE";
     }
   }
@@ -138,7 +172,6 @@ int main(int argc, char *argv[]) {
   freeSongFiles(clientSongList);
   freeSongFiles(hashedServerSongList);
   freeSongFiles(hashedClientSongList);
-  freeSongFiles(diff);
 
   close(sock);
 

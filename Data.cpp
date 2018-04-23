@@ -131,10 +131,22 @@ void writeSongToDisk(SongFile& song) {
 
 
 /******* utility functions ********/
+void hashSongList(vector<SongFile>& original, vector<SongFile>& hashed) {
+  for (unsigned int i = 0; i < original.size(); i++) {
+    SongFile song;
+    memcpy(song.name, original[i].name, NAME_BYTES);
+    song.data = (char*) malloc(sizeof(char) * MAX_SONG_LIST_BYTES);
+    unsigned long hash = djb2_hash(original[i].data, original[i].length);
+    song.length = sizeof(hash);
+    memcpy(song.data, &hash, sizeof(hash));
+    hashed.push_back(song);
+  }
+}
+
 unsigned long serializeSongList(vector<SongFile>& sList, char* data, bool hash_data) {
   unsigned long idx = 0;
   for (unsigned int i = 0; i < sList.size(); i++) {
-    SongFile song = sList[i];
+    SongFile& song = sList[i];
     memcpy(data + idx, song.name, NAME_BYTES);
     idx += NAME_BYTES;
 
@@ -206,15 +218,11 @@ bool hasSong(vector<SongFile>& v, SongFile& song) {
 
 
 // get all the songs in the second list that the first one does not have
-vector<SongFile> getDiff(vector<SongFile>& v1, vector<SongFile>& v2) {
-  vector<SongFile> diff;
-
+void getDiff(vector<SongFile>& diff, vector<SongFile>& v1, vector<SongFile>& v2) {
   for (unsigned int i = 0; i < v2.size(); i++) {
     if (!hasSong(v1, v2[i]))
       diff.push_back(v2[i]);
   }
-
-  return diff;
 }
 
 
