@@ -99,14 +99,14 @@ int main(int argc, char *argv[]) {
       recvTCPMessage(sock, buffer, recv_buffer);
       deserializePacket(buffer, recv_packet); 
 
-      serverSongList = deserializeSongList(recv_packet.data, recv_packet.length, false);
+      serverSongList = deserializeSongList(recv_packet.data, recv_packet.length);
       cout << "Current song files on the server:" << endl;
       for (unsigned int i = 0; i < serverSongList.size(); i++)
         cout << serverSongList[i].name << endl;
     }
     else if (s == "DIFF") {
       bufferLen = getFilesFromDisk("music_dir_2", buffer);
-      clientSongList = deserializeSongList(buffer, bufferLen, true);
+      clientSongList = deserializeSongList(buffer, bufferLen);
       vector<SongFile> diff = getDiff(clientSongList, serverSongList);
       for (unsigned int i = 0; i < diff.size(); i++)
         cout << diff[i].name << endl;

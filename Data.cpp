@@ -38,7 +38,7 @@ unsigned long copyData(char* data, char* buffer, unsigned long totalBytes, bool 
       memcpy(buffer + bufferIdx, data + dataIdx + LENGTH_BYTES, length);
       bufferIdx += length;
     }
-  
+
     dataIdx += LENGTH_BYTES + length;
   }
 
@@ -131,8 +131,33 @@ void writeSongToDisk(SongFile& song) {
 
 
 /******* utility functions ********/
+unsigned long serializeSongList(vector<SongFile>& sList, char* data, bool hash_data) {
+  unsigned long idx = 0;
+  for (unsigned int i = 0; i < sList.size(); i++) {
+    SongFile song = sList[i];
+    memcpy(data + idx, song.name, NAME_BYTES);
+    idx += NAME_BYTES;
 
-vector<SongFile> deserializeSongList(char* data, unsigned long totalBytes, bool hash_data) {
+    if (hash_data) {
+      unsigned long hash = djb2_hash(data + idx + LENGTH_BYTES, song.length);
+      unsigned long hashBytes = sizeof(hash);
+      memcpy(data + idx,  &hashBytes, LENGTH_BYTES);
+      idx += LENGTH_BYTES;
+      memcpy(data + idx, &hash, hashBytes);
+      idx += hashBytes;
+    }
+    else {
+      memcpy(data + idx, &song.length, LENGTH_BYTES);
+      idx += LENGTH_BYTES;
+      memcpy(data + idx, song.data, song.length);
+      idx += song.length;
+    }
+  } 
+  return idx;
+}
+
+
+vector<SongFile> deserializeSongList(char* data, unsigned long totalBytes) {
   vector<SongFile> sList;
   unsigned long idx = 0;
 
@@ -147,16 +172,8 @@ vector<SongFile> deserializeSongList(char* data, unsigned long totalBytes, bool 
     memcpy(&length, data + idx, LENGTH_BYTES);
     idx += LENGTH_BYTES;
 
-    if (hash_data) {
-      unsigned long hash = djb2_hash(data + idx, length);
-      unsigned long hashBytes = sizeof(hash);
-      memcpy(song.data, &hash, hashBytes);
-      song.length = hashBytes;
-    }
-    else {
-      memcpy(song.data, data + idx, length);
-      song.length = length;
-    }
+    memcpy(song.data, data + idx, length);
+    song.length = length;
 
     idx += length;
 

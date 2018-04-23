@@ -30,8 +30,6 @@ struct SongFile {
   unsigned long length; // length of data in bytes
 };
 
-void copyData(char* data, char* buffer, unsigned long totalBytes);
-
 /* functions for serializing and deserializing packet */
 void deserializePacket(char* packet_str, packet_h& ph);
 unsigned long serializePacket(char* packet_str, packet_h& ph, bool hash_data);
@@ -42,6 +40,7 @@ void writeSongToDisk(SongFile& song);
 
 /* utility functions */
 std::vector<SongFile> getDiff(std::vector<SongFile>& v1, std::vector<SongFile>& v2);
-std::vector<SongFile> deserializeSongList(char* data, unsigned long totalBytes, bool hash_data);
+std::vector<SongFile> deserializeSongList(char* data, unsigned long totalBytes);
+unsigned long serializeSongList(std::vector<SongFile>& sList, char* data, bool hash_data);
 
 #endif
