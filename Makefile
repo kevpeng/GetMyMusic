@@ -4,11 +4,11 @@ INCL = -pthread
 
 all: client server
 
-client: MusicClient.cpp NetworkHeader.cpp Data.cpp
-				${CC} ${CFLAGS} -o MusicClient MusicClient.cpp NetworkHeader.cpp Data.cpp
+client: MusicClient.cpp NetworkHeader.cpp Data.cpp Hasher.cpp
+				${CC} ${CFLAGS} -o MusicClient MusicClient.cpp NetworkHeader.cpp Data.cpp Hasher.cpp
 
-server: MusicServer.cpp NetworkHeader.cpp Data.cpp
-				${CC} ${CFLAGS} $(INCL) -o MusicServer MusicServer.cpp NetworkHeader.cpp Data.cpp
+server: MusicServer.cpp NetworkHeader.cpp Data.cpp Hasher.cpp
+				${CC} ${CFLAGS} $(INCL) -o MusicServer MusicServer.cpp NetworkHeader.cpp Data.cpp Hasher.cpp
 
 ################################################################################
 ## My Stuff

@@ -5,38 +5,97 @@
 
 using namespace std;
 
+void* ThreadMain(void* args);
+
+
+int CreateTCPServerSocket(unsigned short port) { 
+  int sock;                        /* socket to create */ 
+  struct sockaddr_in echoServAddr; /* Local address */ 
+
+  /* Create socket for incoming connections */ 
+  if ((sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) 
+    DieWithError("socket() failed"); 
+
+  /* Construct local address structure */ 
+  memset(&echoServAddr, 0, sizeof(echoServAddr));   /* Zero out structure */ 
+  echoServAddr.sin_family = AF_INET;                /* Internet address family */ 
+  echoServAddr.sin_addr.s_addr = htonl(INADDR_ANY); /* Any incoming interface */ 
+  echoServAddr.sin_port = htons(port);              /* Local port */ 
+
+  /* Bind to the local address */ 
+  if (bind(sock, (struct sockaddr *) &echoServAddr, sizeof(echoServAddr)) < 0) 
+    DieWithError("bind() failed"); 
+
+  /* Mark the socket so it will listen for incoming connections */ 
+  if (listen(sock, MAXPENDING) < 0) 
+    DieWithError("listen() failed"); 
+
+  return sock; 
+}
+
+
+int AcceptTCPConnection(int servSock) {
+  int clntSock;                    /* Socket descriptor for client */
+  struct sockaddr_in echoClntAddr; /* Client address */
+  unsigned int clntLen;            /* Length of client address data structure */
+
+  /* Set the size of the in-out parameter */
+  clntLen = sizeof(echoClntAddr);
+
+  /* Wait for a client to connect */
+  if ((clntSock = accept(servSock, (struct sockaddr *) &echoClntAddr,
+          &clntLen)) < 0)
+    DieWithError("accept() failed");
+
+  /* clntSock is connected to a client! */
+
+  printf("Handling client %s\n", inet_ntoa(echoClntAddr.sin_addr));
+
+  return clntSock;
+}
+
+
 void HandleTCPClient(int clientSock) {
+  vector<SongFile> serverSongList;
+  vector<SongFile> clientSongList;
+
+  // for storing an entire packet
   char* buffer;
   buffer = (char*) malloc(sizeof(char) * (MAX_SONG_LIST_BYTES + 3));
+  unsigned long bufferLen;
   char recv_buffer[SHORT_BUFFSIZE];
-
-  recvTCPMessage(clientSock, buffer, recv_buffer);
 
   // recv packet
   packet_h recv_packet;
   recv_packet.data = (char*) malloc(sizeof(char) * (MAX_SONG_LIST_BYTES));
-  deserializePacket(buffer, recv_packet);
 
-  cout << recv_packet.version << endl;
-  cout << recv_packet.type << endl;
-  cout << recv_packet.r << endl;
-  cout << recv_packet.length << endl;
-
-  // packet to send
+  // packet for send
   packet_h ph;
   ph.version = 0x5;
   ph.type = 0;
   ph.r = 1; // response
   ph.data = (char*) malloc(sizeof(char) * (MAX_SONG_LIST_BYTES));
 
-  ph.length = getFilesFromDisk("music_dir_1", ph.data);
-  unsigned long bufferLen = serializePacket(buffer, ph);
+  while (true) {
+    bufferLen = recvTCPMessage(clientSock, buffer, recv_buffer);
+    if (bufferLen == 0)
+      break;
 
-  long sendStatus = send(clientSock, buffer, bufferLen, 0);
-  if (sendStatus < 0)
-    DieWithError("send() failed");
-  if (bufferLen != (unsigned long) sendStatus)
-    DieWithError("send() sent a different number of bytes than expected");
+    deserializePacket(buffer, recv_packet);
+
+    // read data from disk
+    ph.length = getFilesFromDisk("music_dir_1", ph.data);
+    deserializeSongList(ph.data, ph.length);
+
+    // serialize hashed data
+    bufferLen = serializePacket(buffer, ph, true);
+
+    long sendStatus = send(clientSock, buffer, bufferLen, 0);
+    if (sendStatus < 0)
+      DieWithError("send() failed");
+    if (bufferLen != (unsigned long) sendStatus)
+      DieWithError("send() sent a different number of bytes than expected");
+  }
 
   free(buffer);
   free(recv_packet.data);
@@ -44,21 +103,10 @@ void HandleTCPClient(int clientSock) {
   close(clientSock);
 }
 
+
 struct ThreadArgs {
 	int clientSock; // socket descript for client
 };
-
-// for multithreading
-void *ThreadMain(void *threadArgs) {
-	// Guarantees that thread resources are deallocated upon return
-	pthread_detach(pthread_self());
-	// extract socket file descriptor from argument
-	int clntSock = ((struct ThreadArgs *)threadArgs)->clientSock;
-	free(threadArgs); // deallocate memory for argument 
-	HandleTCPClient(clntSock);
-	return(NULL);
-}
-
 
 
 int main(int argc, char* argv[]) {
@@ -89,57 +137,37 @@ int main(int argc, char* argv[]) {
 
   int servSock;
   int clientSock;
-  unsigned int clientLen;
-  struct sockaddr_in servAddr;
-  struct sockaddr_in clientAddr;
+  pthread_t threadID;
+  ThreadArgs* threadArgs;
   
   /* Create socket for incoming connections */
-  if ((servSock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) 
-    DieWithError("socket() failed");
-
-  /* Construct local address structure */
-  memset(&servAddr, 0, sizeof(servAddr));
-  servAddr.sin_family = AF_INET;
-  servAddr.sin_addr.s_addr = htonl(INADDR_ANY);
-  servAddr.sin_port = htons(servPort);
-
-  /* Bind to the local address */
-  if (::bind(servSock, (struct sockaddr *) &servAddr, sizeof(servAddr)) < 0) 
-    DieWithError("bind() failed");
-
-  /* Mark the socket so it will listen for incoming connections */
-  if (listen(servSock, MAXPENDING) < 0)
-    DieWithError("listen() failed");
+  servSock = CreateTCPServerSocket(servPort);
 
   for (;;) {
-    clientLen = sizeof(clientAddr);
-    
-    /* Wait for client to connect */
-    if ((clientSock = accept(servSock, (struct sockaddr *) &clientAddr, &clientLen)) < 0)
-      DieWithError("accept() failed");
+    clientSock = AcceptTCPConnection(servSock);  
 		
-    // clntSock connected to client!!!
-		char clntName[INET_ADDRSTRLEN];         // string to contain client address
-    if(inet_ntop(AF_INET, &clientAddr.sin_addr.s_addr, clntName, sizeof(clntName)) != NULL)
-      printf("Handling client %s/%d\n", clntName, ntohs(clientAddr.sin_port));
-    else
-      puts("Unable to get client address");
-
 		// create separate memory for client argument
-		struct ThreadArgs * threadArgs = (struct ThreadArgs *) malloc(sizeof(struct ThreadArgs));
-		if(threadArgs == NULL)
+		if((threadArgs = (ThreadArgs*) malloc(sizeof(ThreadArgs))) == NULL)
 			DieWithError((char*)"malloc() failed");
-
 		threadArgs->clientSock = clientSock;
 
 		// Create client thread
-		pthread_t threadID;
-		int returnValue = pthread_create(&threadID, NULL, ThreadMain, threadArgs);
-		if(returnValue != 0)
-			DieWithError((char*)"pthread_create() failed");
-
-
-    /* clientSock is connected to a client */
-    //HandleTCPClient(clientSock);
+		if(pthread_create(&threadID, NULL, ThreadMain, (void*)threadArgs) != 0)
+			DieWithError("pthread_create() failed");
   }
 }
+
+
+// for multithreading
+void* ThreadMain(void* threadArgs) {
+	// Guarantees that thread resources are deallocated upon return
+	pthread_detach(pthread_self());
+	// extract socket file descriptor from argument
+	int clntSock = ((ThreadArgs*)threadArgs)->clientSock;
+	free(threadArgs); // deallocate memory for argument 
+
+	HandleTCPClient(clntSock);
+  return NULL;
+}
+
+
