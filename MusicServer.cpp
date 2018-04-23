@@ -4,6 +4,9 @@
 
 using namespace std;
 
+// mutex lock
+static pthread_mutex_t writeToDiskLock = PTHREAD_MUTEX_INITIALIZER;
+
 void* ThreadMain(void* args);
 
 void HandleTCPClient(int clientSock, char* clientAddr) {
@@ -36,7 +39,7 @@ void HandleTCPClient(int clientSock, char* clientAddr) {
     deserializePacket(buffer, recv_packet);
 
     if (recv_packet.type == 0) { // LIST
-      cout << "Receive a LIST packet from " << clientAddr << endl;
+      cout << "\nReceive a LIST packet from " << clientAddr << endl;
       // free old data first
       freeSongFiles(serverSongList);
 
@@ -50,7 +53,7 @@ void HandleTCPClient(int clientSock, char* clientAddr) {
       sendTCPMessage(clientSock, buffer, bufferLen, 0);
     } 
     else if (recv_packet.type == 1) { // DIFF
-      cout << "Receive a DIFF packet from " << clientAddr << endl;
+      cout << "\nReceive a DIFF packet from " << clientAddr << endl;
       // free old data first
       freeSongFiles(onlyServer);
 
@@ -61,12 +64,12 @@ void HandleTCPClient(int clientSock, char* clientAddr) {
       }
     } 
     else if (recv_packet.type == 2) { // SYNC
-      cout << "Receive a SYNC packet from " << clientAddr << endl;
+      cout << "\nReceive a SYNC packet from " << clientAddr << endl;
 
       /* send back data to the client */
       vector<SongFile> filesToSend;
       getSameSongList(filesToSend, onlyServer, serverSongList);
-      cout << "\nSend these files to the client:" << endl;
+      cout << "Send these files to the client:" << endl;
       for (unsigned int i = 0; i < filesToSend.size(); i++) {
         cout << filesToSend[i].name << endl;
       }
@@ -76,6 +79,8 @@ void HandleTCPClient(int clientSock, char* clientAddr) {
       sendTCPMessage(clientSock, buffer, bufferLen, 0);
 
       /* write data from the client to disk (put locks here) */
+      pthread_mutex_lock(&writeToDiskLock);
+
       // free old data first 
       freeSongFiles(onlyServer);
       freeSongFiles(clientSongList);
@@ -111,7 +116,12 @@ void HandleTCPClient(int clientSock, char* clientAddr) {
       freeSongFiles(hashedClientSongList);
       freeSongFiles(hashedServerSongList);
 
-      cout << "Finish writing files from " << clientAddr << endl;
+      cout << "\nFinish writing files from " << clientAddr << endl;
+
+      pthread_mutex_unlock(&writeToDiskLock);
+    } 
+    else if (recv_packet.type == 3) { // LEAVE
+      break;
     }
   }
 
@@ -122,6 +132,7 @@ void HandleTCPClient(int clientSock, char* clientAddr) {
   freeSongFiles(clientSongList);
   freeSongFiles(onlyServer);
 
+  cout << "\nClient " << clientAddr << " ends connection" << endl;
   close(clientSock);
 }
 

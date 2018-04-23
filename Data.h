@@ -11,7 +11,7 @@ const unsigned short HEADER_BYTES = 1 + LENGTH_BYTES;
 // const for song data
 const unsigned short NAME_BYTES = 20;
 const unsigned long MAX_SONG_BYTES = 6000000;
-const unsigned long MAX_SONG_LIST_BYTES = MAX_SONG_BYTES * 256;
+const unsigned long MAX_SONG_LIST_BYTES = MAX_SONG_BYTES * 10;
 
 
 // packet header

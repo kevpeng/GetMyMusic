@@ -6,7 +6,6 @@
 
 using namespace std; 
 
-
 int main(int argc, char *argv[]) {
   char* serverIP = (char *)SERVER_HOST; // server host from the NetworkHeader.h
   unsigned short serverPort = atoi(SERVER_PORT); // port from NetworkHeader.h
@@ -187,7 +186,10 @@ int main(int argc, char *argv[]) {
     }
 
     if (s == "LEAVE") {
-      s = "LEAVE";
+      ph.type = 3;
+      ph.length = 0;
+      bufferLen = serializePacket(buffer, ph, false);
+      sendTCPMessage(sock, buffer, bufferLen, 0);
     }
   }
 
