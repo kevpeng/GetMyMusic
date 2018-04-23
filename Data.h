@@ -11,7 +11,7 @@ const unsigned short HEADER_BYTES = 1 + LENGTH_BYTES;
 // const for song data
 const unsigned short NAME_BYTES = 20;
 const unsigned long MAX_SONG_BYTES = 6000000;
-const unsigned long MAX_SONG_LIST_BYTES = MAX_SONG_BYTES * (1 << 8);
+const unsigned long MAX_SONG_LIST_BYTES = MAX_SONG_BYTES * 10;
 
 
 // packet header
@@ -26,7 +26,7 @@ struct packet_h {
 // contain a song's info
 struct SongFile {
   char name[NAME_BYTES]; // 1 more for null terminator
-  char data[MAX_SONG_BYTES];
+  char* data;
   unsigned long length; // length of data in bytes
 };
 
@@ -40,7 +40,8 @@ void writeSongToDisk(SongFile& song);
 
 /* utility functions */
 std::vector<SongFile> getDiff(std::vector<SongFile>& v1, std::vector<SongFile>& v2);
-std::vector<SongFile> deserializeSongList(char* data, unsigned long totalBytes);
+void deserializeSongList(std::vector<SongFile>& sList, char* data, unsigned long totalBytes);
 unsigned long serializeSongList(std::vector<SongFile>& sList, char* data, bool hash_data);
+void freeSongFiles(std::vector<SongFile>& v);
 
 #endif

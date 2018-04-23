@@ -1,5 +1,7 @@
 #include "NetworkHeader.h"
 #include "Data.h"
+#include "Hasher.h"
+
 #include <set>
 
 using namespace std; 
@@ -77,8 +79,8 @@ int main(int argc, char *argv[]) {
   packet_h recv_packet;
   recv_packet.data = (char*) malloc(sizeof(char) * MAX_SONG_LIST_BYTES);
 
-  vector<SongFile> serverSongList;
-  vector<SongFile> clientSongList;
+  vector<SongFile> clientSongList, hashedServerSongList, hashedClientSongList;
+  vector<SongFile> diff;
 
   // ask for input after connection is established.
   string s = ""; 
@@ -90,26 +92,38 @@ int main(int argc, char *argv[]) {
     cout << "The command you issued was: " << s << endl;
 
     if (s == "LIST") {
+      // free old data first
+      freeSongFiles(hashedServerSongList);
+
       ph.type = 0;
       ph.length = 0;
       bufferLen = serializePacket(buffer, ph, false);
-      if (send(sock, buffer, bufferLen, 0) != (unsigned long)bufferLen)
-        DieWithError("send() sent a different number of bytes than expected");
 
+      sendTCPMessage(sock, buffer, bufferLen, 0);
+
+      // get a list of files from the server
       recvTCPMessage(sock, buffer, recv_buffer);
       deserializePacket(buffer, recv_packet); 
-
-      serverSongList = deserializeSongList(recv_packet.data, recv_packet.length);
+      deserializeSongList(hashedServerSongList, recv_packet.data, recv_packet.length);
       cout << "Current song files on the server:" << endl;
-      for (unsigned int i = 0; i < serverSongList.size(); i++)
-        cout << serverSongList[i].name << endl;
+      for (unsigned int i = 0; i < hashedServerSongList.size(); i++)
+        cout << hashedServerSongList[i].name << endl;
     }
     else if (s == "DIFF") {
-      bufferLen = getFilesFromDisk("music_dir_2", buffer);
-      clientSongList = deserializeSongList(buffer, bufferLen);
-      vector<SongFile> diff = getDiff(clientSongList, serverSongList);
-      for (unsigned int i = 0; i < diff.size(); i++)
-        cout << diff[i].name << endl;
+      freeSongFiles(clientSongList);
+      freeSongFiles(hashedClientSongList);
+
+      bufferLen = getFilesFromDisk("client_dir", buffer);
+      deserializeSongList(clientSongList, buffer, bufferLen);
+
+      // hash the song content
+      for (unsigned int i = 0; i < clientSongList.size(); i++) {
+        SongFile song;
+        song.data = (char*) malloc(sizeof(char) * MAX_SONG_LIST_BYTES);
+        unsigned long hash = djb2_hash(clientSongList[i].data, clientSongList[i].length);
+        song.length = sizeof(hash);
+        memcpy(song.data, &hash, sizeof(hash));
+      }
     }
     else if (s == "PULL") {
     }
@@ -121,6 +135,10 @@ int main(int argc, char *argv[]) {
   free(ph.data);
   free(recv_packet.data);
   free(buffer);
+  freeSongFiles(clientSongList);
+  freeSongFiles(hashedServerSongList);
+  freeSongFiles(hashedClientSongList);
+  freeSongFiles(diff);
 
   close(sock);
 

@@ -157,12 +157,12 @@ unsigned long serializeSongList(vector<SongFile>& sList, char* data, bool hash_d
 }
 
 
-vector<SongFile> deserializeSongList(char* data, unsigned long totalBytes) {
-  vector<SongFile> sList;
+void deserializeSongList(vector<SongFile>& sList, char* data, unsigned long totalBytes) {
   unsigned long idx = 0;
 
   while (idx < totalBytes) {
     SongFile song;
+    song.data = (char*) malloc(sizeof(char) * MAX_SONG_BYTES);
 
     memcpy(song.name, data + idx, NAME_BYTES);
     idx += NAME_BYTES;
@@ -179,8 +179,6 @@ vector<SongFile> deserializeSongList(char* data, unsigned long totalBytes) {
 
     sList.push_back(song);
   }
-
-  return sList;
 }
 
 
@@ -217,6 +215,13 @@ vector<SongFile> getDiff(vector<SongFile>& v1, vector<SongFile>& v2) {
   }
 
   return diff;
+}
+
+
+void freeSongFiles(vector<SongFile>& v) {
+  for (unsigned int i = 0; i < v.size(); i++)
+    free(v[i].data);
+  v.clear();
 }
 
 
