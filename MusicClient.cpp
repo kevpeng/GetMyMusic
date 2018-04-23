@@ -158,6 +158,8 @@ int main(int argc, char *argv[]) {
     }
 
     if (s == "SYNC") {
+      freeSongFiles(serverSongList);
+
       // get the files to send to the server
       vector<SongFile> filesToSend;
       getSameSongList(filesToSend, onlyClient, clientSongList);
