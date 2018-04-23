@@ -5,6 +5,8 @@
 
 using namespace std;
 
+void* ThreadMain(void* args);
+
 
 int CreateTCPServerSocket(unsigned short port) { 
   int sock;                        /* socket to create */ 
@@ -75,7 +77,9 @@ void HandleTCPClient(int clientSock) {
   ph.data = (char*) malloc(sizeof(char) * (MAX_SONG_LIST_BYTES));
 
   while (true) {
-    recvTCPMessage(clientSock, buffer, recv_buffer);
+    bufferLen = recvTCPMessage(clientSock, buffer, recv_buffer);
+    if (bufferLen == 0)
+      break;
 
     deserializePacket(buffer, recv_packet);
 
@@ -99,22 +103,10 @@ void HandleTCPClient(int clientSock) {
   close(clientSock);
 }
 
+
 struct ThreadArgs {
 	int clientSock; // socket descript for client
 };
-
-
-// for multithreading
-void *ThreadMain(void *threadArgs) {
-	// Guarantees that thread resources are deallocated upon return
-	pthread_detach(pthread_self());
-	// extract socket file descriptor from argument
-	int clntSock = ((struct ThreadArgs *)threadArgs)->clientSock;
-	free(threadArgs); // deallocate memory for argument 
-	HandleTCPClient(clntSock);
-	return(NULL);
-}
-
 
 
 int main(int argc, char* argv[]) {
@@ -146,7 +138,7 @@ int main(int argc, char* argv[]) {
   int servSock;
   int clientSock;
   pthread_t threadID;
-  ThreadArgs 
+  ThreadArgs* threadArgs;
   
   /* Create socket for incoming connections */
   servSock = CreateTCPServerSocket(servPort);
@@ -155,19 +147,27 @@ int main(int argc, char* argv[]) {
     clientSock = AcceptTCPConnection(servSock);  
 		
 		// create separate memory for client argument
-		ThreadArgs * threadArgs = (ThreadArgs *) malloc(sizeof(ThreadArgs));
-		if(threadArgs == NULL)
+		if((threadArgs = (ThreadArgs*) malloc(sizeof(ThreadArgs))) == NULL)
 			DieWithError((char*)"malloc() failed");
-
 		threadArgs->clientSock = clientSock;
 
 		// Create client thread
-		int returnValue = pthread_create(&threadID, NULL, ThreadMain, threadArgs);
-		if(returnValue != 0)
-			DieWithError((char*)"pthread_create() failed");
-
-    cout << "Here" << endl;
-    /* clientSock is connected to a client */
-    //HandleTCPClient(clientSock);
+		if(pthread_create(&threadID, NULL, ThreadMain, (void*)threadArgs) != 0)
+			DieWithError("pthread_create() failed");
   }
 }
+
+
+// for multithreading
+void* ThreadMain(void* threadArgs) {
+	// Guarantees that thread resources are deallocated upon return
+	pthread_detach(pthread_self());
+	// extract socket file descriptor from argument
+	int clntSock = ((ThreadArgs*)threadArgs)->clientSock;
+	free(threadArgs); // deallocate memory for argument 
+
+	HandleTCPClient(clntSock);
+  return NULL;
+}
+
+
