@@ -92,7 +92,7 @@ int main(int argc, char *argv[]) {
       ph.type = 0;
       ph.length = 0;
       bufferLen = serializePacket(buffer, ph, false);
-      if (send(sock, buffer, bufferLen, 0) != (unsigned long)bufferLen)
+      if (send(sock, buffer, bufferLen, 0) != (unsigned int)bufferLen)
         DieWithError("send() sent a different number of bytes than expected");
 
       recvTCPMessage(sock, buffer, recv_buffer);
