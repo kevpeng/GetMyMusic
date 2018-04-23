@@ -91,7 +91,7 @@ int main(int argc, char *argv[]) {
     cin >> s;
     cout << "The command you issued was: " << s << endl;
 
-    if (s == "LIST") {
+    if (s == "LIST" || s ==  "list") {
       // free old data first
       freeSongFiles(hashedServerSongList);
 
@@ -109,7 +109,7 @@ int main(int argc, char *argv[]) {
       for (unsigned int i = 0; i < hashedServerSongList.size(); i++)
         cout << hashedServerSongList[i].name << endl;
     }
-    else if (s == "DIFF") {
+    else if (s == "DIFF" || s == "diff") {
       freeSongFiles(clientSongList);
       freeSongFiles(hashedClientSongList);
 
@@ -127,7 +127,7 @@ int main(int argc, char *argv[]) {
     }
     else if (s == "PULL") {
     }
-    else if (s == "LEAVE") {
+    else if (s == "LEAVE" || s == "leave") {
       s = "LEAVE";
     }
   }
