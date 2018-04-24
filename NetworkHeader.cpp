@@ -90,9 +90,6 @@ int AcceptTCPConnection(int servSock, sockaddr_in& echoClntAddr) {
           &clntLen)) < 0)
     DieWithError("accept() failed");
 
-  /* clntSock is connected to a client! */
-  printf("Handling client %s\n", inet_ntoa(echoClntAddr.sin_addr));
-
   return clntSock;
 }
 

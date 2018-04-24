@@ -1,18 +1,42 @@
 #include "NetworkHeader.h"
 #include "Data.h"
 #include <pthread.h>
+#include <time.h>
+#include <fstream>
+#include <csignal>
 
 using namespace std;
 
 // mutex lock
+static const bool DEBUG = true;
 static pthread_mutex_t writeToDiskLock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t logLock = PTHREAD_MUTEX_INITIALIZER;
+
+static ofstream logFile;
 
 void* ThreadMain(void* args);
+void closeSignal(int signum);
 
-void HandleTCPClient(int clientSock, char* clientAddr) {
+void waitFor (unsigned int secs) {
+  unsigned int retTime = time(0) + secs;
+  while (time(0) < retTime);
+}
+
+void logData(string msg) {
+  pthread_mutex_lock(&logLock);
+  time_t rawtime;
+  time(&rawtime);
+  cout << ctime(&rawtime) << msg << endl;
+  logFile << ctime(&rawtime) << msg << endl;
+  pthread_mutex_unlock(&logLock);
+}
+
+void HandleTCPClient(int clientSock, string clientAddr) {
   vector<SongFile> serverSongList, hashedServerSongList;
   vector<SongFile> clientSongList, hashedClientSongList;
   vector<SongFile> onlyServer;
+
+  logData("Connect with client " + clientAddr);
 
   // for storing an entire packet
   char* buffer;
@@ -39,7 +63,7 @@ void HandleTCPClient(int clientSock, char* clientAddr) {
     deserializePacket(buffer, recv_packet);
 
     if (recv_packet.type == 0) { // LIST
-      cout << "\nReceive a LIST packet from " << clientAddr << endl;
+      logData("Receive a LIST packet from " + clientAddr);
       // free old data first
       freeSongFiles(serverSongList);
 
@@ -53,26 +77,26 @@ void HandleTCPClient(int clientSock, char* clientAddr) {
       sendTCPMessage(clientSock, buffer, bufferLen, 0);
     } 
     else if (recv_packet.type == 1) { // DIFF
-      cout << "\nReceive a DIFF packet from " << clientAddr << endl;
+      logData("Receive a DIFF packet from " + clientAddr);
+
       // free old data first
       freeSongFiles(onlyServer);
 
       deserializeSongList(onlyServer, recv_packet.data, recv_packet.length);
-
-      for (unsigned int i = 0; i < onlyServer.size(); i++) {
-        cout << onlyServer[i].name << endl;
-      }
     } 
     else if (recv_packet.type == 2) { // SYNC
-      cout << "\nReceive a SYNC packet from " << clientAddr << endl;
+      logData("Receive a SYNC packet from " + clientAddr);
+      string filesStr = "";
 
       /* send back data to the client */
       vector<SongFile> filesToSend;
       getSameSongList(filesToSend, onlyServer, serverSongList);
-      cout << "Send these files to the client:" << endl;
       for (unsigned int i = 0; i < filesToSend.size(); i++) {
-        cout << filesToSend[i].name << endl;
+        if (i > 0) filesStr += ", ";
+        filesStr += filesToSend[i].name;
       }
+      logData("Send these files: " + filesStr + " to " + clientAddr);
+
       ph.type = 2;
       ph.length = serializeSongList(filesToSend, ph.data, false);
       bufferLen = serializePacket(buffer, ph, false);
@@ -105,10 +129,19 @@ void HandleTCPClient(int clientSock, char* clientAddr) {
       vector<SongFile> filesToWrite;
       getSameSongList(filesToWrite, diff, clientSongList);
 
+      filesStr = "";
       // write the files to disk
       for (unsigned int i = 0; i < filesToWrite.size(); i++) {
+        if (i > 0) filesStr += ", ";
+        filesStr += filesToWrite[i].name;
         writeSongToDisk("server_dir", filesToWrite[i]);
       } 
+      logData("Write these files: " + filesStr + " from " + clientAddr);
+
+      if (DEBUG) {
+        // test lock
+        waitFor(5);
+      }
 
       // free data for next query from the client
       freeSongFiles(clientSongList);
@@ -116,7 +149,7 @@ void HandleTCPClient(int clientSock, char* clientAddr) {
       freeSongFiles(hashedClientSongList);
       freeSongFiles(hashedServerSongList);
 
-      cout << "\nFinish writing files from " << clientAddr << endl;
+      logData("Finish writing files from " + clientAddr);
 
       pthread_mutex_unlock(&writeToDiskLock);
     } 
@@ -132,14 +165,14 @@ void HandleTCPClient(int clientSock, char* clientAddr) {
   freeSongFiles(clientSongList);
   freeSongFiles(onlyServer);
 
-  cout << "\nClient " << clientAddr << " ends connection" << endl;
+  logData("Client " + clientAddr + " ends connection");
   close(clientSock);
 }
 
 
 struct ThreadArgs {
 	int clientSock; // socket descript for client
-  char* clientAddr;
+  string clientAddr;
 };
 
 
@@ -151,6 +184,9 @@ int main(int argc, char* argv[]) {
 
   char c;
   unsigned short servPort;
+
+  // open the log file
+  logFile.open("log.txt", fstream::out | fstream::app);
 
   for (int i = 1; i < argc; ++i) {
     if (argv[i][0] == '-') {
@@ -178,15 +214,20 @@ int main(int argc, char* argv[]) {
   /* Create socket for incoming connections */
   servSock = CreateTCPServerSocket(servPort);
 
+  // register interrupting signal
+  signal(SIGINT, closeSignal);
+
   for (;;) {
     clientSock = AcceptTCPConnection(servSock, clientAddr);  
 		
 		// create separate memory for client argument
-		if((threadArgs = (ThreadArgs*) malloc(sizeof(ThreadArgs))) == NULL)
-			DieWithError((char*)"malloc() failed");
+    threadArgs = new ThreadArgs;
+		if(threadArgs == NULL)
+			DieWithError("failed to allocate memory for thread");
 
 		threadArgs->clientSock = clientSock;
-    threadArgs->clientAddr = inet_ntoa(clientAddr.sin_addr);
+    string clientAddrStr(inet_ntoa(clientAddr.sin_addr));
+    threadArgs->clientAddr = clientAddrStr;
 
 
 		// Create client thread
@@ -202,9 +243,18 @@ void* ThreadMain(void* threadArgs) {
 	pthread_detach(pthread_self());
 	// extract socket file descriptor from argument
 	int clntSock = ((ThreadArgs*)threadArgs)->clientSock;
-	char* clntAddr = ((ThreadArgs*)threadArgs)->clientAddr;
-	free(threadArgs); // deallocate memory for argument 
+	string clntAddr = ((ThreadArgs*)threadArgs)->clientAddr;
+
+  delete (ThreadArgs*)threadArgs;
 
 	HandleTCPClient(clntSock, clntAddr);
   return NULL;
+}
+
+
+// handling interrupting signal
+void closeSignal(int signum) {
+  cout << "Close the server" << endl;
+  logFile.close();
+  exit(signum);
 }
