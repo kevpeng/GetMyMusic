@@ -9,9 +9,10 @@ using namespace std;
 int main(int argc, char *argv[]) {
   char* serverIP = (char *)SERVER_HOST; // server host from the NetworkHeader.h
   unsigned short serverPort = atoi(SERVER_PORT); // port from NetworkHeader.h
+  string dir_name = "client_dir";
 
   if(argc < 2) {
-    cout << "Error: Usage MusicClient [-h <serverIP>] [-p <serverPort>]" << endl;
+    cout << "Error: Usage MusicClient [-h <serverIP>] [-p <serverPort>] [-d <directory>]" << endl;
     return(1);
   }
 
@@ -24,6 +25,9 @@ int main(int argc, char *argv[]) {
           break;
         case 'p': // port number
           serverPort = atoi(argv[i+1]);
+          break;
+        case 'd': // directory
+          dir_name = argv[i+1];
           break;
         default:
           break;
@@ -128,7 +132,7 @@ int main(int argc, char *argv[]) {
       freeSongFiles(hashedClientSongList);
       onlyServer.clear(); onlyClient.clear();
 
-      bufferLen = getFilesFromDisk("client_dir", buffer);
+      bufferLen = getFilesFromDisk(dir_name, buffer);
       deserializeSongList(clientSongList, buffer, bufferLen);
 
       // hash the song content
@@ -181,7 +185,7 @@ int main(int argc, char *argv[]) {
 
       // write the files to disk
       for (unsigned int i = 0; i < serverSongList.size(); i++) {
-        writeSongToDisk("client_dir", serverSongList[i]);
+        writeSongToDisk(dir_name, serverSongList[i]);
       } 
 
       s = "WAIT";

@@ -48,7 +48,7 @@ unsigned long copyData(char* data, char* buffer, unsigned long totalBytes, bool 
 
 unsigned long serializePacket(char* packet_str, packet_h& ph, bool hash_data) {
   // version + type
-  packet_str[0] = (ph.version << 4) | (ph.type << 1) | (ph.r);
+  packet_str[0] = (ph.version << 3) | (ph.type << 1) | (ph.r);
   unsigned long length = copyData(ph.data, packet_str + 1 + LENGTH_BYTES, ph.length, hash_data);
   memcpy(packet_str + 1, &length, LENGTH_BYTES);
   return 1 + LENGTH_BYTES + length;
@@ -56,8 +56,8 @@ unsigned long serializePacket(char* packet_str, packet_h& ph, bool hash_data) {
 
 
 void deserializePacket(char* packet_str, packet_h& ph) {
-  ph.version = ((unsigned char) packet_str[0]) >> 4;
-  ph.type = (((unsigned char) packet_str[0]) >> 1) & 0x7;
+  ph.version = ((unsigned char) packet_str[0]) >> 3;
+  ph.type = (((unsigned char) packet_str[0]) >> 1) & 0x3;
   ph.r = packet_str[0] & 0x1;
   memcpy(&ph.length, packet_str + 1, LENGTH_BYTES);
   copyData(packet_str + 1 + LENGTH_BYTES, ph.data, ph.length, false);
